@@ -2,15 +2,31 @@ package ru.rkapp.methods;
 import ru.rkapp.RungeKuttaMethod;
 import ru.rkapp.RightCalculator;
 import java.util.Arrays;
+
 /**
- *
- * @author vniiem1
+ * Реализация метода Эверхарта (Everhart) для численного интегрирования 
+ * систем обыкновенных дифференциальных уравнений.
+ * <p>
+ * Особенности метода:
+ * <ul>
+ *   <li>Поддерживает переменный порядок интегрирования от 2 до 32</li>
+ *   <li>Использует неявную формулу Рунге-Кутты</li>
+ *   <li>Работает с квадратурными узлами Радо (Radau) и Лобатто (Lobatto)</li>
+ *   <li>Автоматический выбор шага интегрирования</li>
+ *   <li>Итерационное уточнение решения на каждом шаге</li>
+ * </ul>
+ * 
  */
-
-
-
 public class EverhartMethod extends RungeKuttaMethod {
+    
+    /** Максимальный поддерживаемый порядок метода */
     public static final int MAX_ORDER = 32;
+    
+    /**
+     * Таблица узлов разбиения интервала [0,1] для разных порядков.
+     * Структура:
+     *   [Метод2], [Метод3], [Метод4]...
+     */
     private static final double[] SPACINGS = {
         // Метод 2-го порядка (1 элемент)
         1.0,
@@ -330,34 +346,52 @@ public class EverhartMethod extends RungeKuttaMethod {
         1.0
     };
 
+    /** Текущий порядок интегрирования */
     private int order;
+    
+    /** Количество уравнений в системе */
     private final int numberOfEquations;
+    
+    /** Допустимая погрешность на шаге */
     private double localError = 1e-11;
+    
+    /** Максимальное количество итераций на шаге */
     private int maxIterations = 100;
+    
+    /** Флаг проверки сходимости */
     private boolean verifyConvergence = true;
 
-    // Коэффициенты преобразования
-    private double[][] cMatrix;
-    private double[][] dMatrix;
-    private double[][] eMatrix;
-    private double[][] dtaus; // Обратные разности узлов
+    // Матрицы преобразования
+    private double[][] cMatrix;  // Коэффициенты C
+    private double[][] dMatrix;  // Коэффициенты D
+    private double[][] eMatrix;  // Коэффициенты E
+    private double[][] dtaus;    // Обратные разности узлов
     
     // Состояние метода
-    private double[][] aCoeffs;    // Альфа-коэффициенты
-    private double[][] bCoeffs;    // В-коэффициенты (текущие)
-    private double[][] bPrevCoeffs;// В-коэффициенты (предыдущие)
-    private double[] f0;           // Правые части в начальной точке
-    private double[] y0;           // Начальные условия
-    private double[] yTemp;        // Временный вектор Y
-    private double[] pVector;      // Вспомогательный вектор
-    private double[] yk;           // Решение на k-ой итерации
-    private double[] lastF;
+    private double[][] aCoeffs;     // Альфа-коэффициенты
+    private double[][] bCoeffs;     // Текущие B-коэффициенты
+    private double[][] bPrevCoeffs; // Предыдущие B-коэффициенты
+    private double[] f0;            // Правые части в начальной точке
+    private double[] y0;            // Начальные условия
+    private double[] yTemp;         // Временный вектор Y
+    private double[] pVector;       // Вспомогательный вектор
+    private double[] yk;            // Решение на k-ой итерации
+    private double[] lastF;         // Последние вычисленные правые части
     
+    // Флаги состояния
     private boolean isFirstStep = true;
     private double previousStep = 0.0;
     private double previousTime = 0.0;
     private long stepCount = 0;
-
+    
+    /**
+     * Конструктор метода Эверхарта.
+     * 
+     * @param calculator         Вычислитель правых частей
+     * @param order              Порядок метода (2-32)
+     * @param numberOfEquations  Количество уравнений в системе
+     * @throws IllegalArgumentException При недопустимом порядке
+     */
     public EverhartMethod(RightCalculator calculator, int order, int numberOfEquations) {
         super(calculator);
         if (order < 2 || order > MAX_ORDER) {
@@ -369,24 +403,36 @@ public class EverhartMethod extends RungeKuttaMethod {
         calculateCoefficientMatrices();
     }
 
+    /**
+     * Инициализация массивов
+     */
     private void initializeArrays() {
-        int points = order / 2;
+
+        int points = order / 2;  // Количество точек разбиения
+
+        // Инициализация матриц преобразования
         cMatrix = new double[points + 1][points + 1];
         dMatrix = new double[points + 1][points + 1];
         eMatrix = new double[points + 1][points + 1];
         dtaus = new double[points][points];
+
+        // Инициализация коэффициентов
         aCoeffs = new double[points][numberOfEquations];
         bCoeffs = new double[points][numberOfEquations];
         bPrevCoeffs = new double[points][numberOfEquations];
+
+        // Инициализация рабочих векторов
         f0 = new double[numberOfEquations];
         y0 = new double[numberOfEquations];
         yTemp = new double[numberOfEquations];
         pVector = new double[numberOfEquations];
         yk = new double[numberOfEquations];
         lastF = new double[numberOfEquations];
-        resetState();
+
+        resetState();  // Сброс состояния
     }
-    
+ 
+    /** Сброс внутреннего состояния */
     private void resetState() {
         int points = order / 2;
         for (int i = 0; i < points; i++) {
@@ -401,11 +447,14 @@ public class EverhartMethod extends RungeKuttaMethod {
         Arrays.fill(yk, 0.0);
         Arrays.fill(lastF, 0.0);
     }
-    
+
+    /**
+     * Вычисление матриц коэффициентов
+     */
     private void calculateCoefficientMatrices() {
         int points = order / 2;
         int spacingIndex = calculateSpacingIndex();
-        
+
         // Инициализация матриц
         for (int i = 0; i <= points; i++) {
             for (int j = 0; j <= points; j++) {
@@ -452,6 +501,7 @@ public class EverhartMethod extends RungeKuttaMethod {
         }
     }
 
+    /** Вычисление индекса начала узлов для текущего порядка */
     private int calculateSpacingIndex() {
         int points = order / 2;
         return points * (order - points - 1);
@@ -569,14 +619,33 @@ public class EverhartMethod extends RungeKuttaMethod {
         return true;
     }
 
+    /**
+     * Инициализация первого шага.
+     * 
+     * @param t     Начальное время
+     * @param y     Начальные значения
+     * @param parm  Дополнительные параметры
+     */
      private void initializeFirstStep(double t, double[] y, Object parm) {
         System.arraycopy(y, 0, y0, 0, numberOfEquations);
+        // Вычисление правых частей в начальной точке
         if (!rightCalculator.compute(t, y0, f0, parm)) {
             throw new RuntimeException("Initial right parts calculation failed");
         }
         previousTime = t;
     }
-
+     
+    /**
+     * Выполнение итераций на шаге.
+     * 
+     * @param t              Текущее время
+     * @param h              Шаг интегрирования
+     * @param points         Количество точек
+     * @param spacingIndex   Индекс узлов
+     * @param isRadau        Флаг типа разбиения
+     * @param parm           Дополнительные параметры
+     * @return               true, если итерации выполнены успешно
+     */
     private boolean performIterations(double t, double h, int points, int spacingIndex, 
                                       boolean isRadau, Object parm) {
         for (int i = 0; i < points; i++) {
@@ -626,6 +695,16 @@ public class EverhartMethod extends RungeKuttaMethod {
         return true;
     }
 
+    /**
+     * Вычисление решения в заданной точке.
+     * 
+     * @param tau     Положение на интервале [0,1]
+     * @param points  Количество точек
+     * @param h       Шаг интегрирования
+     * @param y       Начальные значения
+     * @param f0      Правые части в начале шага
+     * @param result  Результат вычислений
+     */
     private void calculateSolution(double tau, int points, double h, 
                                    double[] y, double[] f0, double[] result) {
         Arrays.fill(pVector, 0.0);
@@ -641,15 +720,25 @@ public class EverhartMethod extends RungeKuttaMethod {
         }
     }
     
+    /**
+     * Обновление состояния после шага.
+     * 
+     * @param t  Новое время
+     * @param h  Использованный шаг
+     * @param y  Новые значения переменных
+     */    
     private void updateState(double t, double h, double[] y) {
         previousTime = t;
         previousStep = h;
         stepCount++;
         isFirstStep = false;
     }
-    
-        
-        
+           
+    /**
+     * Проверка сходимости итерационного процесса.
+     * 
+     * @return true, если достигнута необходимая точность
+     */        
    private boolean checkConvergence() {
         for (int eq = 0; eq < numberOfEquations; eq++) {
             double error = Math.abs(yTemp[eq] - yk[eq]);
@@ -661,9 +750,15 @@ public class EverhartMethod extends RungeKuttaMethod {
         }
         return true;
     }
+   
+    // Геттеры и сеттеры 
 
-    // Геттеры/сеттеры и вспомогательные методы
-    public void setOrder(int order) {
+    /**
+     * Установка порядка метода.
+     * 
+     * @param order Новый порядок (2-32)
+     * @throws IllegalArgumentException При недопустимом порядке
+     */    public void setOrder(int order) {
         if (order < 2 || order > MAX_ORDER) {
             throw new IllegalArgumentException("Invalid order: " + order);
         }
@@ -671,29 +766,40 @@ public class EverhartMethod extends RungeKuttaMethod {
         initializeArrays();
         calculateCoefficientMatrices();
     }
-
+     
+    /** Полный сброс состояния метода */
     public void reset() {
         isFirstStep = true;
         stepCount = 0;
         resetState();
+        calculateCoefficientMatrices();
     }
-
+    
+   /**
+     * Установка допустимой погрешности.
+     * 
+     * @param localError Новая погрешность (≥1e-15)
+     */
     public void setLocalError(double localError) {
         this.localError = Math.max(localError, 1e-15);
     }
 
+    /**
+     * Установка максимального числа итераций.
+     * 
+     * @param maxIterations Новое значение (≥1)
+     */
     public void setMaxIterations(int maxIterations) {
         this.maxIterations = Math.max(maxIterations, 1);
     }
-
+    
+    /**
+     * Установка флага проверки сходимости.
+     * 
+     * @param verifyConvergence true - проверять сходимость
+     */
     public void setVerifyConvergence(boolean verifyConvergence) {
         this.verifyConvergence = verifyConvergence;
     }
 
-//    // Сброс состояния метода
-//    public void reset() {
-//        isFirstStep = true;
-//        stepCount = 0;
-//        initializeArrays();
-//    }
 }

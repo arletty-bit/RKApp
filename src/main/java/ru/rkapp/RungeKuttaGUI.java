@@ -203,7 +203,7 @@ public class RungeKuttaGUI extends JFrame {
 
         
         methodComboBox.addItem(new MethodWrapper("Everhart (адаптивный)", 
-            calc -> new EverhartMethod(calc, 15, 1)));
+            calc -> new EverhartMethod(calc, 32, 1)));
         
         // Добавление полей ввода начальных условий
         inputPanel.add(new JLabel("Начальное x:"));
