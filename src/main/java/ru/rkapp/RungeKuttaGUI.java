@@ -252,8 +252,8 @@ public class RungeKuttaGUI extends JFrame {
         JScrollPane graphScrollPane = new JScrollPane(graphPanel);
 
         // Добавление вкладок
-        tabbedPane.addTab("Результаты", textScrollPane);
         tabbedPane.addTab("График", graphScrollPane);
+        tabbedPane.addTab("Результаты", textScrollPane);
 
         // Размещение панели вкладок в центре окна
         add(tabbedPane, BorderLayout.CENTER);
