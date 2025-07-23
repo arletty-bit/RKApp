@@ -197,13 +197,21 @@ public class RungeKuttaGUI extends JFrame {
         methodComboBox.addItem(new MethodWrapper("DoPri7 (7 порядка)", DormandPrince7::new));
         methodComboBox.addItem(new MethodWrapper("DoPri8 (8 порядка)", DormandPrince8::new));
         methodComboBox.addItem(new MethodWrapper("DormandPrince853Integrator", DormandPrince853Integrator::new));
+//        methodComboBox.addItem(new MethodWrapper("AdaptiveDormandPrince853Integrator",
+//                calc -> new AdaptiveDormandPrince853Integrator(
+//                        calc,
+//                        1e-8, // minStep
+//                        0.1, // maxStep
+//                        1e-8, // absTol
+//                        1e-8 // relTol
+//                )
+//        ));
 //        AdaptiveDormandPrince853Integrator integrator = 
 //            new AdaptiveDormandPrince853Integrator(minStep, maxStep, absTol, relTol);
 //                methodComboBox.addItem(new MethodWrapper("AdaptiveDormandPrince853Integrator", AdaptiveDormandPrince853Integrator::new));
 
-        
-        methodComboBox.addItem(new MethodWrapper("Everhart (адаптивный)", 
-            calc -> new EverhartMethod(calc, 16, 1)));
+        methodComboBox.addItem(new MethodWrapper("Метод Эверхарта", 
+            calc -> new EverhartMethod(calc, 15, 1)));
         
         // Добавление полей ввода начальных условий
         inputPanel.add(new JLabel("Начальное x:"));
