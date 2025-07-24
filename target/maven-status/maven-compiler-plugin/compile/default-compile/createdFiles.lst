@@ -7,7 +7,6 @@ ru\rkapp\GraphPanel.class
 ru\rkapp\methods\AdaptiveDormandPrince853Integrator.class
 ru\rkapp\methods\DOPRI5.class
 ru\rkapp\methods\DormandPrince853Integrator.class
-ru\rkapp\RungeKuttaGUI$TestFunction.class
 ru\rkapp\methods\Everhart.class
 ru\rkapp\ButcherTableMethod.class
 ru\rkapp\RungeKuttaSolver.class
@@ -17,9 +16,7 @@ ru\rkapp\methods\CRK4b.class
 ru\rkapp\methods\CRK3b.class
 ru\rkapp\methods\CRK6x.class
 ru\rkapp\methods\DOPRI8.class
-ru\rkapp\RungeKuttaGUI$MethodWrapper.class
 ru\rkapp\Differentiation.class
-ru\rkapp\RungeKuttaGUI$1.class
 ru\rkapp\methods\CRK3c.class
 ru\rkapp\methods\CRK4c.class
 ru\rkapp\AdaptiveODEIntegrator.class

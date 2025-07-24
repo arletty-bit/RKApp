@@ -7,7 +7,6 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -27,151 +26,6 @@ import java.util.logging.Logger;
  */
 public class RungeKuttaGUI extends JFrame {
 
-    /**
-     * Перечисление тестовых функций для верификации методов Рунге-Кутты. Каждая
-     * функция содержит:
-     * <ul>
-     * <li>Математическое выражение</li>
-     * <li>Функцию вычисления значения</li>
-     * <li>Функцию вычисления производной</li>
-     * </ul>
-     */
-    public enum TestFunction {
-        SIN("sin(x)", "Math.sin(x)",
-                x -> Math.sin(x), // Функция синуса
-                x -> Math.cos(x)), // Производная синуса - косинус
-
-        COS("cos(x)", "Math.cos(x)",
-                x -> Math.cos(x), // Функция косинуса
-                x -> -Math.sin(x)), // Производная косинуса - минус синус
-
-        EXP("exp(x)", "Math.exp(x)",
-                x -> Math.exp(x), // Экспоненциальная функция
-                x -> Math.exp(x)), // Производная экспоненты - сама экспонента
-
-        QUAD("x^2", "x * x",
-                x -> x * x, // Квадратичная функция
-                x -> 2 * x);              // Производная квадратичной функции - линейная
-
-        private final String name;          // Название функции
-        private final Function<Double, Double> function;   // Функция вычисления значения
-        private final Function<Double, Double> derivative; // Функция вычисления производной
-        private final String expression;
-        
-
-        /**
-         * Конструктор тестовой функции.
-         *
-         * @param name название функции
-         * @param function лямбда-выражение для вычисления значения
-         * @param derivative лямбда-выражение для вычисления производной
-         */
-        TestFunction(String name, String expression,
-                Function<Double, Double> function,
-                Function<Double, Double> derivative) {
-            this.name = name;
-            this.expression = expression;
-
-            this.function = function;
-            this.derivative = derivative;
-        }
-
-        /**
-         * Вычисляет значение функции в точке x.
-         *
-         * @param x аргумент функции
-         * @return значение функции
-         */
-        public double value(double x) {
-            return function.apply(x);
-        }
-
-        /**
-         * Вычисляет значение производной функции в точке x.
-         *
-         * @param x аргумент функции
-         * @return значение производной
-         */
-        public double derivative(double x) {
-            return derivative.apply(x);
-        }
-
-        // Численная производная (через центральную разностную схему)
-        public double numericalDerivative(double x) {
-            return Differentiation.derivative(function, x);
-        }
-        
-            public String getExpression() {
-        return expression;
-    }
-
-        /**
-         * Возвращает строковое представление функции.
-         *
-         * @return название функции
-         */
-        @Override
-        public String toString() {
-            return name;
-        }
-        
-        
-    }
-
-    public static double[][] getFunctionAndDerivativeValues(TestFunction func, double min, double max, int n) {
-        double[][] result = new double[n][3];
-        double step = (max - min) / n;
-        for (int i = 0; i < n; i++) {
-            double x = min + i * step;
-            double y = func.value(x);
-            double dy = func.numericalDerivative(x);
-            result[i] = new double[]{x, y, dy};
-        }
-        return result;
-    }
-
-    /**
-     * Обертка для методов Рунге-Кутты, обеспечивающая удобное создание
-     * экземпляров и отображение в пользовательском интерфейсе.
-     */
-    private static class MethodWrapper {
-
-        private final String name;  // Название метода
-        private final java.util.function.Function<RightCalculator, RungeKuttaMethod> factory; // Фабрика для создания метода
-
-        /**
-         * Конструктор обертки метода.
-         *
-         * @param name название метода
-         * @param factory фабричная функция для создания экземпляра метода
-         */
-        public MethodWrapper(String name,
-                java.util.function.Function<RightCalculator, RungeKuttaMethod> factory) {
-            this.name = name;
-            this.factory = factory;
-        }
-
-        /**
-         * Создает экземпляр метода Рунге-Кутты.
-         *
-         * @param calculator вычислитель правых частей ОДУ
-         * @return экземпляр метода
-         */
-        public RungeKuttaMethod createMethod(RightCalculator calculator) {
-            return factory.apply(calculator);
-        }
-
-        /**
-         * Возвращает название метода.
-         *
-         * @return строковое представление метода
-         */
-        @Override
-        public String toString() {
-            return name;
-        }
-    }
-
     // Элементы пользовательского интерфейса
     private final JComboBox<TestFunction> functionComboBox; // Выбор функции
     private final JComboBox<MethodWrapper> methodComboBox;  // Выбор метода
@@ -182,10 +36,10 @@ public class RungeKuttaGUI extends JFrame {
     private final JTextField stepsField;   // Поле ввода количества шагов
     private final JTextArea resultArea;    // Область вывода результатов
     private final JLabel derivativeLabel;  // Метка для отображения производной
-    private GraphPanel graphPanel;         // Панель для рисования графиков
-    private JTabbedPane tabbedPane;        // Панель с вкладками
-    private JCheckBox derivativeCheckBox; // производной флажок
-    private JCheckBox errorCheckBox; // ошибка
+    private final GraphPanel graphPanel;         // Панель для рисования графиков
+    private final JTabbedPane tabbedPane;        // Панель с вкладками
+    private final JCheckBox derivativeCheckBox;     // Флажок производной
+    private final JCheckBox errorCheckBox;          //  Флажок ошибки
 
     /**
      * Конструктор главного окна приложения. Инициализирует компоненты
@@ -223,7 +77,9 @@ public class RungeKuttaGUI extends JFrame {
 
         inputPanel.add(errorCheckBox);
 
-        // Заполнение списка методов Рунге-Кутты
+        // Заполнение списка методов Рунге-Кутты        
+        methodComboBox.addItem(new MethodWrapper("Эверхарт (-:[2,32])",
+                calc -> new Everhart(calc, 15, 1)));
         methodComboBox.addItem(new MethodWrapper("Метод Эйлера (1:1)", EULER::new));
         methodComboBox.addItem(new MethodWrapper("Метод Трапеций (2:2)", T2::new));
 
@@ -262,8 +118,7 @@ public class RungeKuttaGUI extends JFrame {
 //            new AdaptiveDormandPrince853Integrator(minStep, maxStep, absTol, relTol);
 //                methodComboBox.addItem(new MethodWrapper("AdaptiveDormandPrince853Integrator", AdaptiveDormandPrince853Integrator::new));
 
-        methodComboBox.addItem(new MethodWrapper("Эверхарт (-:[2,32])",
-                calc -> new Everhart(calc, 15, 1)));
+
 
         // Добавление полей ввода начальных условий
         inputPanel.add(new JLabel("Начальное x:"));
@@ -327,46 +182,76 @@ public class RungeKuttaGUI extends JFrame {
         add(buttonPanel, BorderLayout.SOUTH); // Размещение в нижней части
 
         // Настройка обработчиков событий
-        functionComboBox.addActionListener(e -> updateDerivative());
+        functionComboBox.addActionListener(e -> {
+            updateDerivative();
+            setDefaultParametersForFunction();
+        });
         x0Field.addActionListener(e -> updateDerivative());
-
+        setDefaultParametersForFunction();
         // Первоначальное обновление производной
         updateDerivative();
+    }
+
+    private void setDefaultParametersForFunction() {
+        TestFunction function = (TestFunction) functionComboBox.getSelectedItem();
+        if (function == TestFunction.LOG) {
+            minXField.setText("1");
+            maxXField.setText("2");
+            stepsField.setText("100");
+            x0Field.setText("1");
+            y0Field.setText("1");
+        } else 
+            
+            if (function == TestFunction.SIN_COS) {
+            minXField.setText("0.0");
+            maxXField.setText("6.28318530717959"); // 2π
+            stepsField.setText("180");
+        }
     }
 
     /**
      * Обновляет значение производной при изменении функции или начальной точки.
      */
     private void updateDerivative() {
-        // Получение выбранной функции
         TestFunction function = (TestFunction) functionComboBox.getSelectedItem();
         try {
-            // Парсинг начального значения x
             double x0 = Double.parseDouble(x0Field.getText());
-            // Вычисление производной
+            double y0 = function.value(x0);
+            y0Field.setText(String.format("%.6f", y0));
+
             double derivative = function.derivative(x0);
-            // Обновление текста метки
             derivativeLabel.setText("Производная в x0: " + String.format("%.6f", derivative));
         } catch (NumberFormatException e) {
-            // Обработка ошибки неверного формата числа
-            derivativeLabel.setText("Производная в x0: ошибка ввода");
+            derivativeLabel.setText("Производная в x0: ошибка ввода числа");
+        } catch (Exception e) {
+            derivativeLabel.setText("Производная в x0: ошибка вычисления");
+            y0Field.setText(""); // Сброс некорректного значения
         }
     }
 
     // Поля для хранения функций
     private FunctionManager modelFunction;
     private FunctionManager derivativeFunction;
-    
+
     // Вспомогательный метод для получения производных выражений
-private String getDerivativeExpression(TestFunction function) {
-    switch (function) {
-        case SIN: return "Math.cos(x)";
-        case COS: return "-Math.sin(x)";
-        case EXP: return "Math.exp(x)";
-        case QUAD: return "2 * x";
-        default: throw new IllegalArgumentException("Неизвестная функция");
+    private String getDerivativeExpression(TestFunction function) {
+        switch (function) {
+            case SIN:
+                return "Math.cos(x)";
+            case COS:
+                return "-Math.sin(x)";
+            case EXP:
+                return "Math.exp(x)";
+            case QUAD:
+                return "2 * x";
+            case SIN_COS:
+                return "Math.cos(x)*Math.cos(10*x) - 10*Math.sin(x)*Math.sin(10*x)";
+            case LOG:
+                return "1.0 / x";
+            default:
+                throw new IllegalArgumentException("Неизвестная функция");
+        }
     }
-}
 
     /**
      * Обработчик события нажатия кнопки "Вычислить". Выполняет решение ОДУ
@@ -409,8 +294,9 @@ private String getDerivativeExpression(TestFunction function) {
             // dy/dx = f(t), где f(t) - производная выбранной функции
             RightCalculator calculator = (t, y, f, parm) -> {
                 try {
-                    // f[0] = function.derivative(t); // ◄◄◄ Вычисление производной
-                    f[0] = derivativeFunction.compute(t);
+                    // f[0] = function.derivative(t);           // ◄◄◄ Производная из строки
+                    //f[0] = function.numericalDerivative(t);   // ◄◄◄ Вычисление производной
+                    f[0] = derivativeFunction.compute(t);       // ◄◄◄ Динамический вызов
                 } catch (Exception ex) {
                     Logger.getLogger(RungeKuttaGUI.class.getName()).log(Level.SEVERE, null, ex);
                 }

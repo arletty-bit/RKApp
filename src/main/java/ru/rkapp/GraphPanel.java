@@ -26,7 +26,7 @@ public class GraphPanel extends JPanel {
     private List<Double> yExact;       // Точное решение
     private List<Double> errorValues;   // Значения ошибок
     private boolean showError = false;
-    private static final Color ERROR_COLOR = new Color(220, 0, 100); // Малиновый
+    private static final Color ERROR_COLOR = new Color(255, 153, 102); // Цвет ошибки (рыжий)
 
     // Константы оформления
     private static final int PAD = 80;           // Отступы от краев

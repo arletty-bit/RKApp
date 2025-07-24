@@ -1,4 +1,5 @@
 D:\RKAppGIT\src\main\java\ru\rkapp\methods\CRK3a.java
+D:\RKAppGIT\src\main\java\ru\rkapp\MethodWrapper.java
 D:\RKAppGIT\src\main\java\ru\rkapp\Differentiation.java
 D:\RKAppGIT\src\main\java\ru\rkapp\RungeKuttaMethod.java
 D:\RKAppGIT\src\main\java\ru\rkapp\RungeKuttaSolver.java
@@ -18,6 +19,7 @@ D:\RKAppGIT\src\main\java\ru\rkapp\methods\Everhart.java
 D:\RKAppGIT\src\main\java\ru\rkapp\methods\AdaptiveDormandPrince853Integrator.java
 D:\RKAppGIT\src\main\java\ru\rkapp\methods\CRK4a.java
 D:\RKAppGIT\src\main\java\ru\rkapp\methods\DormandPrince853Integrator.java
+D:\RKAppGIT\src\main\java\ru\rkapp\TestFunction.java
 D:\RKAppGIT\src\main\java\ru\rkapp\methods\CRK3c.java
 D:\RKAppGIT\src\main\java\ru\rkapp\GraphPanel.java
 D:\RKAppGIT\src\main\java\ru\rkapp\methods\CRK6a.java
