@@ -8,6 +8,8 @@ import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Главное окно приложения для решения обыкновенных дифференциальных уравнений с
@@ -35,25 +37,27 @@ public class RungeKuttaGUI extends JFrame {
      * </ul>
      */
     public enum TestFunction {
-        SIN("sin(x)",
+        SIN("sin(x)", "Math.sin(x)",
                 x -> Math.sin(x), // Функция синуса
                 x -> Math.cos(x)), // Производная синуса - косинус
 
-        COS("cos(x)",
+        COS("cos(x)", "Math.cos(x)",
                 x -> Math.cos(x), // Функция косинуса
                 x -> -Math.sin(x)), // Производная косинуса - минус синус
 
-        EXP("exp(x)",
+        EXP("exp(x)", "Math.exp(x)",
                 x -> Math.exp(x), // Экспоненциальная функция
                 x -> Math.exp(x)), // Производная экспоненты - сама экспонента
 
-        QUAD("x^2",
+        QUAD("x^2", "x * x",
                 x -> x * x, // Квадратичная функция
                 x -> 2 * x);              // Производная квадратичной функции - линейная
 
         private final String name;          // Название функции
         private final Function<Double, Double> function;   // Функция вычисления значения
         private final Function<Double, Double> derivative; // Функция вычисления производной
+        private final String expression;
+        
 
         /**
          * Конструктор тестовой функции.
@@ -62,10 +66,12 @@ public class RungeKuttaGUI extends JFrame {
          * @param function лямбда-выражение для вычисления значения
          * @param derivative лямбда-выражение для вычисления производной
          */
-        TestFunction(String name,
+        TestFunction(String name, String expression,
                 Function<Double, Double> function,
                 Function<Double, Double> derivative) {
             this.name = name;
+            this.expression = expression;
+
             this.function = function;
             this.derivative = derivative;
         }
@@ -94,6 +100,10 @@ public class RungeKuttaGUI extends JFrame {
         public double numericalDerivative(double x) {
             return Differentiation.derivative(function, x);
         }
+        
+            public String getExpression() {
+        return expression;
+    }
 
         /**
          * Возвращает строковое представление функции.
@@ -104,6 +114,8 @@ public class RungeKuttaGUI extends JFrame {
         public String toString() {
             return name;
         }
+        
+        
     }
 
     public static double[][] getFunctionAndDerivativeValues(TestFunction func, double min, double max, int n) {
@@ -341,6 +353,21 @@ public class RungeKuttaGUI extends JFrame {
         }
     }
 
+    // Поля для хранения функций
+    private FunctionManager modelFunction;
+    private FunctionManager derivativeFunction;
+    
+    // Вспомогательный метод для получения производных выражений
+private String getDerivativeExpression(TestFunction function) {
+    switch (function) {
+        case SIN: return "Math.cos(x)";
+        case COS: return "-Math.sin(x)";
+        case EXP: return "Math.exp(x)";
+        case QUAD: return "2 * x";
+        default: throw new IllegalArgumentException("Неизвестная функция");
+    }
+}
+
     /**
      * Обработчик события нажатия кнопки "Вычислить". Выполняет решение ОДУ
      * выбранным методом и отображает результаты.
@@ -375,10 +402,18 @@ public class RungeKuttaGUI extends JFrame {
             // Расчет шага интегрирования
             double h = (maxX - minX) / steps;
 
+            modelFunction = new FunctionManager(function.getExpression());
+            derivativeFunction = new FunctionManager(getDerivativeExpression(function));
+
             // Создание вычислителя правых частей ОДУ
             // dy/dx = f(t), где f(t) - производная выбранной функции
             RightCalculator calculator = (t, y, f, parm) -> {
-                f[0] = function.derivative(t); // ◄◄◄ Вычисление производной
+                try {
+                    // f[0] = function.derivative(t); // ◄◄◄ Вычисление производной
+                    f[0] = derivativeFunction.compute(t);
+                } catch (Exception ex) {
+                    Logger.getLogger(RungeKuttaGUI.class.getName()).log(Level.SEVERE, null, ex);
+                }
                 return true;
             };
 
