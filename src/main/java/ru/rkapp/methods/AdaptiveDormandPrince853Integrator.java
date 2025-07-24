@@ -1,284 +1,284 @@
-//package ru.rkapp.methods;
-//
-//import ru.rkapp.RungeKuttaMethod;
-//import ru.rkapp.RightCalculator;
-//
-//public class AdaptiveDormandPrince853Integrator extends RungeKuttaMethod {
-//    // Константы управления шагом
-//    private static final double SAFETY = 0.9;
-//    private static final double MIN_FACTOR = 0.2;
-//    private static final double MAX_FACTOR = 5.0;
-//    private static final double EXPONENT = 1.0 / 5.0;
-//    
-//    // Параметры адаптивности
-//    private final double minStep;
-//    private final double maxStep;
-//    private final double scalAbsoluteTolerance;
-//    private final double scalRelativeTolerance;
-//    private final double[] vecAbsoluteTolerance;
-//    private final double[] vecRelativeTolerance;
-//    
-//    // Состояние метода
-//    private double nextStep;
-//    private double[] lastDerivative;
-//    private boolean firstStep = true;
-//    
-//    // Количество стадий
-//    private static final int STAGES = 13;
-//    
-//    // Коэффициенты c
-//    private static final double[] C = {
-//        (12.0 - 2.0 * Math.sqrt(6.0)) / 135.0,
-//        (6.0 - Math.sqrt(6.0)) / 45.0,
-//        (6.0 - Math.sqrt(6.0)) / 30.0,
-//        (6.0 + Math.sqrt(6.0)) / 30.0,
-//        1.0/3.0,
-//        1.0/4.0,
-//        4.0/13.0,
-//        127.0/195.0,
-//        3.0/5.0,
-//        6.0/7.0,
-//        1.0,
-//        1.0
-//    };
-//    
-//    // Основные веса (8-й порядок)
-//    private static final double[] B8 = {
-//        104257.0/1920240.0,
-//        0.0,
-//        0.0,
-//        0.0,
-//        0.0,
-//        3399327.0/763840.0,
-//        66578432.0/35198415.0,
-//        -1674902723.0/288716400.0,
-//        54980371265625.0/176692375811392.0,
-//        -734375.0/4826304.0,
-//        171414593.0/851261400.0,
-//        137909.0/3084480.0,
-//        0.0
-//    };
-//    
-//    // Веса для оценки ошибки 1 (порядок 5)
-//    private static final double[] E1 = {
-//        116092271.0 / 8848465920.0,
-//        0.0,
-//        0.0,
-//        0.0,
-//        0.0,
-//        -1871647.0 / 1527680.0,
-//        -69799717.0 / 140793660.0,
-//        1230164450203.0 / 739113984000.0,
-//        -1980813971228885.0 / 5654156025964544.0,
-//        464500805.0 / 1389975552.0,
-//        1606764981773.0 / 19613062656000.0,
-//        -137909.0 / 6168960.0,
-//        0.0
-//    };
-//    
-//    // Веса для оценки ошибки 2 (порядок 3)
-//    private static final double[] E2 = {
-//        -364463.0 / 1920240.0,
-//        0.0,
-//        0.0,
-//        0.0,
-//        0.0,
-//        3399327.0 / 763840.0,
-//        66578432.0 / 35198415.0,
-//        -1674902723.0 / 288716400.0,
-//        -74684743568175.0 / 176692375811392.0,
-//        -734375.0 / 4826304.0,
-//        171414593.0 / 851261400.0,
-//        69869.0 / 3084480.0,
-//        0.0
-//    };
-//    
-//    // Коэффициенты A
-//    private static final double[][] A = {
-//        {(6.0 - Math.sqrt(6.0)) / 180.0},
-//        {(6.0 - Math.sqrt(6.0)) / 120.0, (6.0 - Math.sqrt(6.0)) / 40.0},
-//        {(462.0 + 107.0 * Math.sqrt(6.0)) / 3000.0, 0.0, (-402.0 - 197.0 * Math.sqrt(6.0)) / 1000.0},
-//        {1.0/27.0, 0.0, 0.0, (16.0 + Math.sqrt(6.0)) / 108.0},
-//        {19.0/512.0, 0.0, 0.0, (118.0 + 23.0 * Math.sqrt(6.0)) / 1024.0, (118.0 - 23.0 * Math.sqrt(6.0)) / 1024.0, -9.0/512.0},
-//        {13772.0/371293.0, 0.0, 0.0, (51544.0 + 4784.0 * Math.sqrt(6.0)) / 371293.0, (51544.0 - 4784.0 * Math.sqrt(6.0)) / 371293.0, -5688.0/371293.0, 3072.0/371293.0},
-//        {58656157643.0/93983540625.0, 0.0, 0.0, (-1324889724104.0 - 318801444819.0 * Math.sqrt(6.0)) / 626556937500.0, (-1324889724104.0 + 318801444819.0 * Math.sqrt(6.0)) / 626556937500.0, 96044563816.0/3480871875.0, 5682451879168.0/281950621875.0, -165125654.0/3796875.0},
-//        {8909899.0/18653125.0, 0.0, 0.0, (-4521408.0 - 1137963.0 * Math.sqrt(6.0)) / 2937500.0, (-4521408.0 + 1137963.0 * Math.sqrt(6.0)) / 2937500.0, 96663078.0/4553125.0, 2107245056.0/137915625.0, -4913652016.0/147609375.0, -78894270.0/3880452869.0},
-//        {-20401265806.0/21769653311.0, 0.0, 0.0, (354216.0 + 94326.0 * Math.sqrt(6.0)) / 112847.0, (354216.0 - 94326.0 * Math.sqrt(6.0)) / 112847.0, -43306765128.0/5313852383.0, -20866708358144.0/1126708119789.0, 14886003438020.0/654632330667.0, 35290686222309375.0/14152473387134411.0, -1477884375.0/485066827.0},
-//        {39815761.0/17514443.0, 0.0, 0.0, (-3457480.0 - 960905.0 * Math.sqrt(6.0)) / 551636.0, (-3457480.0 + 960905.0 * Math.sqrt(6.0)) / 551636.0, -844554132.0/47026969.0, 8444996352.0/302158619.0, -2509602342.0/877790785.0, -28388795297996250.0/3199510091356783.0, 226716250.0/18341897.0, 1371316744.0/2131383595.0},
-//        {58656157643.0/93983540625.0, 0.0, 0.0, (-1324889724104.0 - 318801444819.0 * Math.sqrt(6.0)) / 626556937500.0, (-1324889724104.0 + 318801444819.0 * Math.sqrt(6.0)) / 626556937500.0, 96044563816.0/3480871875.0, 5682451879168.0/281950621875.0, -165125654.0/3796875.0, 8909899.0/18653125.0, -20401265806.0/21769653311.0, 39815761.0/17514443.0, 0.0},
-//        {14005451.0/335480064.0, 0.0, 0.0, 0.0, 0.0, -59238493.0/1068277825.0, 181606767.0/758867731.0, 561292985.0/797845732.0, -1041891430.0/1371343529.0, 760417239.0/1151165299.0, 118820643.0/751138087.0, -528747749.0/2220607170.0}
-//    };
-//
-//    public AdaptiveDormandPrince853Integrator(RightCalculator calculator, 
-//                                             double minStep, double maxStep,
-//                                             double absTol, double relTol) {
-//        super(calculator);
-//        this.minStep = Math.abs(minStep);
-//        this.maxStep = Math.abs(maxStep);
-//        this.scalAbsoluteTolerance = absTol;
-//        this.scalRelativeTolerance = relTol;
-//        this.vecAbsoluteTolerance = null;
-//        this.vecRelativeTolerance = null;
-//        reset();
-//    }
-//
-//    public AdaptiveDormandPrince853Integrator(RightCalculator calculator, 
-//                                             double minStep, double maxStep,
-//                                             double[] absTol, double[] relTol) {
-//        super(calculator);
-//        this.minStep = Math.abs(minStep);
-//        this.maxStep = Math.abs(maxStep);
-//        this.scalAbsoluteTolerance = 0;
-//        this.scalRelativeTolerance = 0;
-//        this.vecAbsoluteTolerance = absTol.clone();
-//        this.vecRelativeTolerance = relTol.clone();
-//        reset();
-//    }
-//
-//    @Override
-//    public boolean step(double t, double[] y, double h, double[] yNew, Object parm) {
-//        final int n = y.length;
-//        double[][] k = new double[STAGES][n];
-//        double[] yTmp = new double[n];
-//        double[] y1 = new double[n];
-//        
-//        double hToUse = firstStep ? 
-//            Math.max(minStep, Math.min(maxStep, Math.abs(h))) * Math.signum(h) : 
-//            nextStep;
-//
-//        boolean stepAccepted = false;
-//        double error = 0;
-//        
-//        while (!stepAccepted) {
-//            hToUse = applyStepBounds(hToUse);
-//            
-//            // Стадия 1 (FSAL)
-//            if (firstStep || lastDerivative == null) {
-//                if (!rightCalculator.compute(t, y, k[0], parm)) {
-//                    return false;
-//                }
-//            } else {
-//                System.arraycopy(lastDerivative, 0, k[0], 0, n);
-//            }
-//            
-//            // Промежуточные стадии (2-13)
-//            for (int i = 1; i < STAGES; i++) {
-//                System.arraycopy(y, 0, yTmp, 0, n);
-//                for (int j = 0; j < i; j++) {
-//                    double aij = (j < A[i-1].length) ? A[i-1][j] : 0.0;
-//                    if (aij != 0.0) {
-//                        for (int m = 0; m < n; m++) {
-//                            yTmp[m] += hToUse * aij * k[j][m];
-//                        }
-//                    }
-//                }
-//                double tStage = t + C[i-1] * hToUse;
-//                if (!rightCalculator.compute(tStage, yTmp, k[i], parm)) {
-//                    return false;
-//                }
-//            }
-//            
-//            // Вычисление нового состояния
-//            System.arraycopy(y, 0, y1, 0, n);
-//            for (int j = 0; j < STAGES; j++) {
-//                double bj = (j < B8.length) ? B8[j] : 0.0;
-//                if (bj != 0.0) {
-//                    for (int m = 0; m < n; m++) {
-//                        y1[m] += hToUse * bj * k[j][m];
-//                    }
-//                }
-//            }
-//            
-//            // Оценка ошибки
-//            error = estimateError(k, y, y1, hToUse, n);
-//            
-//            // Проверка допустимости ошибки
-//            if (error <= 1.0) {
-//                stepAccepted = true;
-//            } else {
-//                // Уменьшение шага
-//                double factor = Math.max(MIN_FACTOR, SAFETY * Math.pow(error, -EXPONENT));
-//                hToUse *= factor;
-//                
-//                if (Math.abs(hToUse) < minStep) {
-//                    // Принудительное принятие шага при достижении минимума
-//                    stepAccepted = true;
-//                }
-//            }
-//        }
-//        
-//        // Сохранение результатов
-//        System.arraycopy(y1, 0, yNew, 0, n);
-//        lastDerivative = k[STAGES-1];
-//        
-//        // Расчет следующего шага
-//        double factor = SAFETY * Math.pow(error, -EXPONENT);
-//        factor = Math.min(MAX_FACTOR, Math.max(MIN_FACTOR, factor));
-//        nextStep = hToUse * factor;
-//        nextStep = applyStepBounds(nextStep);
-//        
-//        firstStep = false;
-//        return true;
-//    }
-//    
-//    private double applyStepBounds(double step) {
-//        double absStep = Math.abs(step);
-//        if (absStep < minStep) {
-//            return minStep * Math.signum(step);
-//        } else if (absStep > maxStep) {
-//            return maxStep * Math.signum(step);
-//        }
-//        return step;
-//    }
-//    
-//    private double estimateError(double[][] k, double[] y0, double[] y1, double h, int n) {
-//        double error1 = 0.0;
-//        double error2 = 0.0;
-//        
-//        for (int i = 0; i < n; i++) {
-//            double errSum1 = 0.0;
-//            double errSum2 = 0.0;
-//            
-//            for (int j = 0; j < STAGES; j++) {
-//                if (j < E1.length) {
-//                    errSum1 += E1[j] * k[j][i];
-//                }
-//                if (j < E2.length) {
-//                    errSum2 += E2[j] * k[j][i];
-//                }
-//            }
-//            
-//            double tol;
-//            if (vecAbsoluteTolerance != null) {
-//                tol = vecAbsoluteTolerance[i] + vecRelativeTolerance[i] * Math.max(Math.abs(y0[i]), Math.abs(y1[i]));
-//            } else {
-//                tol = scalAbsoluteTolerance + scalRelativeTolerance * Math.max(Math.abs(y0[i]), Math.abs(y1[i]));
-//            }
-//            
-//            double ratio1 = errSum1 * h / tol;
-//            error1 += ratio1 * ratio1;
-//            
-//            double ratio2 = errSum2 * h / tol;
-//            error2 += ratio2 * ratio2;
-//        }
-//        
-//        error1 = Math.sqrt(error1 / n);
-//        error2 = Math.sqrt(error2 / n);
-//        double den = error1 + 0.01 * error2;
-//        
-//        if (den <= 0.0) {
-//            den = 1.0;
-//        }
-//        
-//        return Math.abs(h) * error1 / Math.sqrt(n * den);
-//    }
-//    
-//    public void reset() {
-//        firstStep = true;
-//        lastDerivative = null;
-//        nextStep = Double.NaN;
-//    }
-//}
+package ru.rkapp.methods;
+
+import ru.rkapp.RungeKuttaMethod;
+import ru.rkapp.RightCalculator;
+
+public class AdaptiveDormandPrince853Integrator extends RungeKuttaMethod {
+    // Константы управления шагом
+    private static final double SAFETY = 0.9;
+    private static final double MIN_FACTOR = 0.2;
+    private static final double MAX_FACTOR = 5.0;
+    private static final double EXPONENT = 1.0 / 5.0;
+    
+    // Параметры адаптивности
+    private final double minStep;
+    private final double maxStep;
+    private final double scalAbsoluteTolerance;
+    private final double scalRelativeTolerance;
+    private final double[] vecAbsoluteTolerance;
+    private final double[] vecRelativeTolerance;
+    
+    // Состояние метода
+    private double nextStep;
+    private double[] lastDerivative;
+    private boolean firstStep = true;
+    
+    // Количество стадий
+    private static final int STAGES = 13;
+    
+    // Коэффициенты c
+    private static final double[] C = {
+        (12.0 - 2.0 * Math.sqrt(6.0)) / 135.0,
+        (6.0 - Math.sqrt(6.0)) / 45.0,
+        (6.0 - Math.sqrt(6.0)) / 30.0,
+        (6.0 + Math.sqrt(6.0)) / 30.0,
+        1.0/3.0,
+        1.0/4.0,
+        4.0/13.0,
+        127.0/195.0,
+        3.0/5.0,
+        6.0/7.0,
+        1.0,
+        1.0
+    };
+    
+    // Основные веса (8-й порядок)
+    private static final double[] B8 = {
+        104257.0/1920240.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        3399327.0/763840.0,
+        66578432.0/35198415.0,
+        -1674902723.0/288716400.0,
+        54980371265625.0/176692375811392.0,
+        -734375.0/4826304.0,
+        171414593.0/851261400.0,
+        137909.0/3084480.0,
+        0.0
+    };
+    
+    // Веса для оценки ошибки 1 (порядок 5)
+    private static final double[] E1 = {
+        116092271.0 / 8848465920.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -1871647.0 / 1527680.0,
+        -69799717.0 / 140793660.0,
+        1230164450203.0 / 739113984000.0,
+        -1980813971228885.0 / 5654156025964544.0,
+        464500805.0 / 1389975552.0,
+        1606764981773.0 / 19613062656000.0,
+        -137909.0 / 6168960.0,
+        0.0
+    };
+    
+    // Веса для оценки ошибки 2 (порядок 3)
+    private static final double[] E2 = {
+        -364463.0 / 1920240.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        3399327.0 / 763840.0,
+        66578432.0 / 35198415.0,
+        -1674902723.0 / 288716400.0,
+        -74684743568175.0 / 176692375811392.0,
+        -734375.0 / 4826304.0,
+        171414593.0 / 851261400.0,
+        69869.0 / 3084480.0,
+        0.0
+    };
+    
+    // Коэффициенты A
+    private static final double[][] A = {
+        {(6.0 - Math.sqrt(6.0)) / 180.0},
+        {(6.0 - Math.sqrt(6.0)) / 120.0, (6.0 - Math.sqrt(6.0)) / 40.0},
+        {(462.0 + 107.0 * Math.sqrt(6.0)) / 3000.0, 0.0, (-402.0 - 197.0 * Math.sqrt(6.0)) / 1000.0},
+        {1.0/27.0, 0.0, 0.0, (16.0 + Math.sqrt(6.0)) / 108.0},
+        {19.0/512.0, 0.0, 0.0, (118.0 + 23.0 * Math.sqrt(6.0)) / 1024.0, (118.0 - 23.0 * Math.sqrt(6.0)) / 1024.0, -9.0/512.0},
+        {13772.0/371293.0, 0.0, 0.0, (51544.0 + 4784.0 * Math.sqrt(6.0)) / 371293.0, (51544.0 - 4784.0 * Math.sqrt(6.0)) / 371293.0, -5688.0/371293.0, 3072.0/371293.0},
+        {58656157643.0/93983540625.0, 0.0, 0.0, (-1324889724104.0 - 318801444819.0 * Math.sqrt(6.0)) / 626556937500.0, (-1324889724104.0 + 318801444819.0 * Math.sqrt(6.0)) / 626556937500.0, 96044563816.0/3480871875.0, 5682451879168.0/281950621875.0, -165125654.0/3796875.0},
+        {8909899.0/18653125.0, 0.0, 0.0, (-4521408.0 - 1137963.0 * Math.sqrt(6.0)) / 2937500.0, (-4521408.0 + 1137963.0 * Math.sqrt(6.0)) / 2937500.0, 96663078.0/4553125.0, 2107245056.0/137915625.0, -4913652016.0/147609375.0, -78894270.0/3880452869.0},
+        {-20401265806.0/21769653311.0, 0.0, 0.0, (354216.0 + 94326.0 * Math.sqrt(6.0)) / 112847.0, (354216.0 - 94326.0 * Math.sqrt(6.0)) / 112847.0, -43306765128.0/5313852383.0, -20866708358144.0/1126708119789.0, 14886003438020.0/654632330667.0, 35290686222309375.0/14152473387134411.0, -1477884375.0/485066827.0},
+        {39815761.0/17514443.0, 0.0, 0.0, (-3457480.0 - 960905.0 * Math.sqrt(6.0)) / 551636.0, (-3457480.0 + 960905.0 * Math.sqrt(6.0)) / 551636.0, -844554132.0/47026969.0, 8444996352.0/302158619.0, -2509602342.0/877790785.0, -28388795297996250.0/3199510091356783.0, 226716250.0/18341897.0, 1371316744.0/2131383595.0},
+        {58656157643.0/93983540625.0, 0.0, 0.0, (-1324889724104.0 - 318801444819.0 * Math.sqrt(6.0)) / 626556937500.0, (-1324889724104.0 + 318801444819.0 * Math.sqrt(6.0)) / 626556937500.0, 96044563816.0/3480871875.0, 5682451879168.0/281950621875.0, -165125654.0/3796875.0, 8909899.0/18653125.0, -20401265806.0/21769653311.0, 39815761.0/17514443.0, 0.0},
+        {14005451.0/335480064.0, 0.0, 0.0, 0.0, 0.0, -59238493.0/1068277825.0, 181606767.0/758867731.0, 561292985.0/797845732.0, -1041891430.0/1371343529.0, 760417239.0/1151165299.0, 118820643.0/751138087.0, -528747749.0/2220607170.0}
+    };
+
+    public AdaptiveDormandPrince853Integrator(RightCalculator calculator, 
+                                             double minStep, double maxStep,
+                                             double absTol, double relTol) {
+        super(calculator);
+        this.minStep = Math.abs(minStep);
+        this.maxStep = Math.abs(maxStep);
+        this.scalAbsoluteTolerance = absTol;
+        this.scalRelativeTolerance = relTol;
+        this.vecAbsoluteTolerance = null;
+        this.vecRelativeTolerance = null;
+        reset();
+    }
+
+    public AdaptiveDormandPrince853Integrator(RightCalculator calculator, 
+                                             double minStep, double maxStep,
+                                             double[] absTol, double[] relTol) {
+        super(calculator);
+        this.minStep = Math.abs(minStep);
+        this.maxStep = Math.abs(maxStep);
+        this.scalAbsoluteTolerance = 0;
+        this.scalRelativeTolerance = 0;
+        this.vecAbsoluteTolerance = absTol.clone();
+        this.vecRelativeTolerance = relTol.clone();
+        reset();
+    }
+
+    @Override
+    public boolean step(double t, double[] y, double h, double[] yNew, Object parm) {
+        final int n = y.length;
+        double[][] k = new double[STAGES][n];
+        double[] yTmp = new double[n];
+        double[] y1 = new double[n];
+        
+        double hToUse = firstStep ? 
+            Math.max(minStep, Math.min(maxStep, Math.abs(h))) * Math.signum(h) : 
+            nextStep;
+
+        boolean stepAccepted = false;
+        double error = 0;
+        
+        while (!stepAccepted) {
+            hToUse = applyStepBounds(hToUse);
+            
+            // Стадия 1 (FSAL)
+            if (firstStep || lastDerivative == null) {
+                if (!rightCalculator.compute(t, y, k[0], parm)) {
+                    return false;
+                }
+            } else {
+                System.arraycopy(lastDerivative, 0, k[0], 0, n);
+            }
+            
+            // Промежуточные стадии (2-13)
+            for (int i = 1; i < STAGES; i++) {
+                System.arraycopy(y, 0, yTmp, 0, n);
+                for (int j = 0; j < i; j++) {
+                    double aij = (j < A[i-1].length) ? A[i-1][j] : 0.0;
+                    if (aij != 0.0) {
+                        for (int m = 0; m < n; m++) {
+                            yTmp[m] += hToUse * aij * k[j][m];
+                        }
+                    }
+                }
+                double tStage = t + C[i-1] * hToUse;
+                if (!rightCalculator.compute(tStage, yTmp, k[i], parm)) {
+                    return false;
+                }
+            }
+            
+            // Вычисление нового состояния
+            System.arraycopy(y, 0, y1, 0, n);
+            for (int j = 0; j < STAGES; j++) {
+                double bj = (j < B8.length) ? B8[j] : 0.0;
+                if (bj != 0.0) {
+                    for (int m = 0; m < n; m++) {
+                        y1[m] += hToUse * bj * k[j][m];
+                    }
+                }
+            }
+            
+            // Оценка ошибки
+            error = estimateError(k, y, y1, hToUse, n);
+            
+            // Проверка допустимости ошибки
+            if (error <= 1.0) {
+                stepAccepted = true;
+            } else {
+                // Уменьшение шага
+                double factor = Math.max(MIN_FACTOR, SAFETY * Math.pow(error, -EXPONENT));
+                hToUse *= factor;
+                
+                if (Math.abs(hToUse) < minStep) {
+                    // Принудительное принятие шага при достижении минимума
+                    stepAccepted = true;
+                }
+            }
+        }
+        
+        // Сохранение результатов
+        System.arraycopy(y1, 0, yNew, 0, n);
+        lastDerivative = k[STAGES-1];
+        
+        // Расчет следующего шага
+        double factor = SAFETY * Math.pow(error, -EXPONENT);
+        factor = Math.min(MAX_FACTOR, Math.max(MIN_FACTOR, factor));
+        nextStep = hToUse * factor;
+        nextStep = applyStepBounds(nextStep);
+        
+        firstStep = false;
+        return true;
+    }
+    
+    private double applyStepBounds(double step) {
+        double absStep = Math.abs(step);
+        if (absStep < minStep) {
+            return minStep * Math.signum(step);
+        } else if (absStep > maxStep) {
+            return maxStep * Math.signum(step);
+        }
+        return step;
+    }
+    
+    private double estimateError(double[][] k, double[] y0, double[] y1, double h, int n) {
+        double error1 = 0.0;
+        double error2 = 0.0;
+        
+        for (int i = 0; i < n; i++) {
+            double errSum1 = 0.0;
+            double errSum2 = 0.0;
+            
+            for (int j = 0; j < STAGES; j++) {
+                if (j < E1.length) {
+                    errSum1 += E1[j] * k[j][i];
+                }
+                if (j < E2.length) {
+                    errSum2 += E2[j] * k[j][i];
+                }
+            }
+            
+            double tol;
+            if (vecAbsoluteTolerance != null) {
+                tol = vecAbsoluteTolerance[i] + vecRelativeTolerance[i] * Math.max(Math.abs(y0[i]), Math.abs(y1[i]));
+            } else {
+                tol = scalAbsoluteTolerance + scalRelativeTolerance * Math.max(Math.abs(y0[i]), Math.abs(y1[i]));
+            }
+            
+            double ratio1 = errSum1 * h / tol;
+            error1 += ratio1 * ratio1;
+            
+            double ratio2 = errSum2 * h / tol;
+            error2 += ratio2 * ratio2;
+        }
+        
+        error1 = Math.sqrt(error1 / n);
+        error2 = Math.sqrt(error2 / n);
+        double den = error1 + 0.01 * error2;
+        
+        if (den <= 0.0) {
+            den = 1.0;
+        }
+        
+        return Math.abs(h) * error1 / Math.sqrt(n * den);
+    }
+    
+    public void reset() {
+        firstStep = true;
+        lastDerivative = null;
+        nextStep = Double.NaN;
+    }
+}
 
 ////package ru.rkapp.methods;
 ////

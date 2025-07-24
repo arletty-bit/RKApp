@@ -2,6 +2,7 @@ package ru.rkapp;
 
 import java.util.ArrayList;
 import java.util.List;
+import ru.rkapp.methods.AdaptiveDormandPrince853Integrator;
 
 /**
  * Решатель системы ОДУ методами Рунге-Кутты.
@@ -59,30 +60,30 @@ public class RungeKuttaSolver {
         return results;
     }
     
-//    
-//    private static List<double[]> solveAdaptive(AdaptiveDormandPrince853Integrator method,
-//                                          double t0, double[] y0,
-//                                          double h, int steps, Object parm) {
-//    List<double[]> results = new ArrayList<>();
-//    results.add(y0.clone());
-//    
-//    double[] currentY = y0.clone();
-//    double t = t0;
-//    double currentH = h;
-//    
-//    for (int i = 0; i < steps; i++) {
-//        double[] nextY = new double[y0.length];
-//        
-//        if (!method.step(t, currentY, currentH, nextY, parm)) {
-//            throw new RuntimeException("Ошибка вычисления на шаге " + i);
-//        }
-//        
-//        results.add(nextY);
-//        currentY = nextY;
-//        t += currentH;
-//    }
-//    
-//    return results;
-//}
-//    
+    
+    private static List<double[]> solveAdaptive(AdaptiveDormandPrince853Integrator method,
+                                          double t0, double[] y0,
+                                          double h, int steps, Object parm) {
+    List<double[]> results = new ArrayList<>();
+    results.add(y0.clone());
+    
+    double[] currentY = y0.clone();
+    double t = t0;
+    double currentH = h;
+    
+    for (int i = 0; i < steps; i++) {
+        double[] nextY = new double[y0.length];
+        
+        if (!method.step(t, currentY, currentH, nextY, parm)) {
+            throw new RuntimeException("Ошибка вычисления на шаге " + i);
+        }
+        
+        results.add(nextY);
+        currentY = nextY;
+        t += currentH;
+    }
+    
+    return results;
+}
+    
 }
