@@ -220,34 +220,39 @@ public class GraphPanel extends JPanel {
         drawPolyline(g2, xValues, yExact, minX, minY, xScale, yScale, width, height);
 
         // Отрисовка легенды
-        int legendX = width - 200;
-        int legendY = PAD + 20;
+        int legendX = width - 140;
+        int legendY = PAD - 65;
+        int legendWidth = 140; // Уменьшили ширину легенды
 
-        // Фон легенды
+        // Фон легенды (с небольшой прозрачностью)
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.9f));
         g2.setColor(Color.WHITE);
-        g2.fillRect(legendX - 10, legendY - 15, 190, 50);
+        int legendHeight = showDerivative && yDerivative != null ? 80 : 60;
+        g2.fillRoundRect(legendX - 10, legendY - 10, legendWidth, legendHeight, 15, 15);
+        g2.setComposite(AlphaComposite.SrcOver);
+        
         g2.setColor(Color.GRAY);
-        g2.drawRect(legendX - 10, legendY - 15, 190, 50);
+        g2.drawRoundRect(legendX - 10, legendY - 10, legendWidth, legendHeight, 15, 15);
 
         // Элемент легенды для численного решения
         g2.setFont(LABEL_FONT);
         g2.setColor(NUMERICAL_COLOR);
-        g2.fillRect(legendX, legendY, 15, 15);
+        g2.fillRect(legendX, legendY, 12, 12);
         g2.setColor(Color.BLACK);
-        g2.drawString("Численное решение", legendX + 25, legendY + 12);
+        g2.drawString("Численное", legendX + 20, legendY + 10);
 
         // Элемент легенды для точного решения
         g2.setColor(EXACT_COLOR);
-        g2.fillRect(legendX, legendY + 25, 15, 15);
+        g2.fillRect(legendX, legendY + 20, 12, 12);
         g2.setColor(Color.BLACK);
-        g2.drawString("Точное решение", legendX + 25, legendY + 37);
+        g2.drawString("Точное", legendX + 20, legendY + 30);
 
-        // Отрисовка ПРОИЗВОДНОЙ (если включена) ◄◄◄
+        // Элемент для производной (если включена)
         if (showDerivative && yDerivative != null && !yDerivative.isEmpty()) {
             g2.setColor(new Color(0, 150, 0));
-            g2.fillRect(legendX, legendY + 50, 15, 15);
+            g2.fillRect(legendX, legendY + 40, 12, 12);
             g2.setColor(Color.BLACK);
-            g2.drawString("Производная", legendX + 25, legendY + 62);
+            g2.drawString("Производная", legendX + 20, legendY + 50);
         }
     }
 
