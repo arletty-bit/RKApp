@@ -173,6 +173,7 @@ public class RungeKuttaGUI extends JFrame {
     private GraphPanel graphPanel;         // Панель для рисования графиков
     private JTabbedPane tabbedPane;        // Панель с вкладками
     private JCheckBox derivativeCheckBox; // производной флажок
+    private JCheckBox errorCheckBox; // ошибка
 
     /**
      * Конструктор главного окна приложения. Инициализирует компоненты
@@ -186,7 +187,7 @@ public class RungeKuttaGUI extends JFrame {
         setLayout(new BorderLayout());
 
         // Создание панели ввода параметров
-        JPanel inputPanel = new JPanel(new GridLayout(8, 2, 5, 5));
+        JPanel inputPanel = new JPanel(new GridLayout(9, 2, 5, 5));
         inputPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         // Добавление выбора функции
@@ -194,15 +195,21 @@ public class RungeKuttaGUI extends JFrame {
         functionComboBox = new JComboBox<>(TestFunction.values());
         inputPanel.add(functionComboBox);
 
+        // Добавление выбора метода
+        inputPanel.add(new JLabel("Метод:"));
+        methodComboBox = new JComboBox<>();
+        inputPanel.add(methodComboBox);
+
         // Добавляем флажок для производной
         inputPanel.add(new JLabel("Производная:"));
         derivativeCheckBox = new JCheckBox("Показать");
         inputPanel.add(derivativeCheckBox);
 
-        // Добавление выбора метода
-        inputPanel.add(new JLabel("Метод:"));
-        methodComboBox = new JComboBox<>();
-        inputPanel.add(methodComboBox);
+        inputPanel.add(new JLabel("Ошибка:"));
+        errorCheckBox = new JCheckBox("Показать");
+        errorCheckBox.setSelected(true);
+
+        inputPanel.add(errorCheckBox);
 
         // Заполнение списка методов Рунге-Кутты
         methodComboBox.addItem(new MethodWrapper("Метод Эйлера (1:1)", EULER::new));
@@ -454,6 +461,22 @@ public class RungeKuttaGUI extends JFrame {
                 sb.append(String.format("%-10.4f %-15.8f %-15.8f %-15.8e\n",
                         x, numY, exactY, error));
             }
+
+            // Ошибка
+            List<Double> errorValues = null;
+            if (errorCheckBox.isSelected()) {
+                errorValues = new ArrayList<>();
+                for (int i = 0; i < solution.size(); i++) {
+                    double x = minX + i * h;
+                    double exactY = function.value(x);
+                    double numY = solution.get(i)[0];
+                    double error = Math.abs(numY - exactY);
+                    errorValues.add(error);
+                }
+            }
+
+            graphPanel.setErrorData(errorValues);
+            graphPanel.setShowError(errorCheckBox.isSelected());
 
             // Вычисление средней ошибки
             double avgError = sumError / solution.size();

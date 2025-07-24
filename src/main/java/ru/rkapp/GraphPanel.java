@@ -24,6 +24,9 @@ public class GraphPanel extends JPanel {
     private List<Double> xValues;      // Значения X
     private List<Double> yNumerical;   // Численное решение
     private List<Double> yExact;       // Точное решение
+    private List<Double> errorValues;   // Значения ошибок
+    private boolean showError = false;
+    private static final Color ERROR_COLOR = new Color(220, 0, 100); // Малиновый
 
     // Константы оформления
     private static final int PAD = 80;           // Отступы от краев
@@ -110,6 +113,14 @@ public class GraphPanel extends JPanel {
             maxY = Math.max(maxY, y);
         }
 
+        // Поиск min и max по Y для ошибки
+        if (showError && errorValues != null && !errorValues.isEmpty()) {
+            for (double err : errorValues) {
+                minY = Math.min(minY, err);
+                maxY = Math.max(maxY, err);
+            }
+        }
+
         // Добавление отступов вокруг данных
         double xRange = maxX - minX;
         double yRange = maxY - minY;
@@ -135,11 +146,20 @@ public class GraphPanel extends JPanel {
         double xScale = (width - 2 * PAD) / (maxX - minX);
         double yScale = (height - 2 * PAD) / (maxY - minY);
 
+        // Производная
         if (showDerivative && yDerivative != null && !yDerivative.isEmpty()) {
             g2.setColor(new Color(0, 150, 0)); // Зеленый цвет для производной
             g2.setStroke(new BasicStroke(2, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL,
                     0, new float[]{5, 3}, 0)); // Пунктир
             drawPolyline(g2, xValues, yDerivative, minX, minY, xScale, yScale, width, height);
+        }
+
+        // Ошибка
+        if (showError && errorValues != null && !errorValues.isEmpty()) {
+            g2.setColor(ERROR_COLOR);
+            g2.setStroke(new BasicStroke(2, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL,
+                    0, new float[]{5, 3}, 0)); // Пунктир
+            drawPolyline(g2, xValues, errorValues, minX, minY, xScale, yScale, width, height);
         }
 
         // Отрисовка сетки
@@ -219,40 +239,63 @@ public class GraphPanel extends JPanel {
         g2.setStroke(new BasicStroke(2, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, new float[]{5, 5}, 0));
         drawPolyline(g2, xValues, yExact, minX, minY, xScale, yScale, width, height);
 
-        // Отрисовка легенды
+// Отрисовка легенды
         int legendX = width - 140;
         int legendY = PAD - 65;
-        int legendWidth = 140; // Уменьшили ширину легенды
+        int legendWidth = 140;
 
-        // Фон легенды (с небольшой прозрачностью)
+// Рассчитываем количество линий в легенде
+        int lineCount = 2; // Всегда есть численное и точное
+        if (showDerivative && yDerivative != null && !yDerivative.isEmpty()) {
+            lineCount++;
+        }
+        if (showError && errorValues != null && !errorValues.isEmpty()) {
+            lineCount++;
+        }
+
+// Динамический расчёт высоты легенды (20px на элемент + 10px отступы)
+        int legendHeight = 20 + lineCount * 20;
+
+// Фон легенды
         g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.9f));
         g2.setColor(Color.WHITE);
-        int legendHeight = showDerivative && yDerivative != null ? 80 : 60;
         g2.fillRoundRect(legendX - 10, legendY - 10, legendWidth, legendHeight, 15, 15);
         g2.setComposite(AlphaComposite.SrcOver);
-        
         g2.setColor(Color.GRAY);
         g2.drawRoundRect(legendX - 10, legendY - 10, legendWidth, legendHeight, 15, 15);
 
-        // Элемент легенды для численного решения
-        g2.setFont(LABEL_FONT);
+// Текущая позиция Y для элементов легенды
+        int currentY = legendY;
+
+// Численное решение
         g2.setColor(NUMERICAL_COLOR);
-        g2.fillRect(legendX, legendY, 12, 12);
+        g2.fillRect(legendX, currentY, 12, 12);
         g2.setColor(Color.BLACK);
-        g2.drawString("Численное", legendX + 20, legendY + 10);
+        g2.drawString("Численное", legendX + 20, currentY + 10);
+        currentY += 20;
 
-        // Элемент легенды для точного решения
+// Точное решение
         g2.setColor(EXACT_COLOR);
-        g2.fillRect(legendX, legendY + 20, 12, 12);
+        g2.fillRect(legendX, currentY, 12, 12);
         g2.setColor(Color.BLACK);
-        g2.drawString("Точное", legendX + 20, legendY + 30);
+        g2.drawString("Точное", legendX + 20, currentY + 10);
+        currentY += 20;
 
-        // Элемент для производной (если включена)
+// Производная (если нужно)
         if (showDerivative && yDerivative != null && !yDerivative.isEmpty()) {
             g2.setColor(new Color(0, 150, 0));
-            g2.fillRect(legendX, legendY + 40, 12, 12);
+            g2.fillRect(legendX, currentY, 12, 12);
             g2.setColor(Color.BLACK);
-            g2.drawString("Производная", legendX + 20, legendY + 50);
+            g2.drawString("Производная", legendX + 20, currentY + 10);
+            currentY += 20;
+        }
+
+// Ошибка (если нужно)
+        if (showError && errorValues != null && !errorValues.isEmpty()) {
+            g2.setColor(ERROR_COLOR);
+            g2.fillRect(legendX, currentY, 12, 12);
+            g2.setColor(Color.BLACK);
+            g2.drawString("Ошибка", legendX + 20, currentY + 10);
         }
     }
 
@@ -317,5 +360,13 @@ public class GraphPanel extends JPanel {
     public void setShowDerivative(boolean show) {
         this.showDerivative = show;
         repaint();
+    }
+
+    public void setErrorData(List<Double> errorValues) {
+        this.errorValues = errorValues;
+    }
+
+    public void setShowError(boolean show) {
+        this.showError = show;
     }
 }
