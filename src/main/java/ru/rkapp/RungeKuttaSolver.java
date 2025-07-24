@@ -13,11 +13,13 @@ public class RungeKuttaSolver {
      *
      * @param method  метод интегрирования
      * @param t0      начальное время
-     * @param y0      начальные условия
+     * @param y0      начальные условия (вектор)
      * @param h       размер шага
      * @param steps   количество шагов
-     * @param parm    пользовательские параметры
+     * @param parm    пользовательские параметры (передаются в RightCalculator)
      * @return список состояний системы на каждом шаге
+     * @throws RuntimeException если вычисление на шаге завершилось ошибкой
+
      */
     public static List<double[]> solve(RungeKuttaMethod method, 
                                      double t0, double[] y0,

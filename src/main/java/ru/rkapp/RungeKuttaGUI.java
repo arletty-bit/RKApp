@@ -50,7 +50,7 @@ public class RungeKuttaGUI extends JFrame {
             x -> x * x,               // Квадратичная функция
             x -> 2 * x);              // Производная квадратичной функции - линейная
         
-        private final String name;          // Человекочитаемое название функции
+        private final String name;          // Название функции
         private final Function<Double, Double> function;   // Функция вычисления значения
         private final Function<Double, Double> derivative; // Функция вычисления производной
         
@@ -178,24 +178,35 @@ public class RungeKuttaGUI extends JFrame {
         inputPanel.add(new JLabel("Метод:"));
         methodComboBox = new JComboBox<>();
         inputPanel.add(methodComboBox);
-        
+
         // Заполнение списка методов Рунге-Кутты
-        methodComboBox.addItem(new MethodWrapper("Метод Эйлера", EulerMethod::new));
-        methodComboBox.addItem(new MethodWrapper("Метод Средней Точки (CRK2a)", MidpointMethod::new));
-        methodComboBox.addItem(new MethodWrapper("Метод Трапеций", TrapezoidalMethod::new));
-        methodComboBox.addItem(new MethodWrapper("Классический РК4", ClassicalRungeKuttaMethod::new));
-        methodComboBox.addItem(new MethodWrapper("DoPri5 (5-го порядка)", DormandPrince5::new));
-        methodComboBox.addItem(new MethodWrapper("CRK3a", RK3aMethod::new));
-        methodComboBox.addItem(new MethodWrapper("CRK3b", RK3bMethod::new));
-        methodComboBox.addItem(new MethodWrapper("CRK3c", RK3cMethod::new));
-        methodComboBox.addItem(new MethodWrapper("CRK4b (3/8)", RK38RuleMethod::new));
-        methodComboBox.addItem(new MethodWrapper("CRK4c", RK4cMethod::new));
-        methodComboBox.addItem(new MethodWrapper("CRK5a (Kutta-Nystrom)", KuttaNystromMethod::new));
-        methodComboBox.addItem(new MethodWrapper("CRK6a", RK6aMethod::new));
-        methodComboBox.addItem(new MethodWrapper("CRK6x (Butcher)", ButcherMethod::new));
-        methodComboBox.addItem(new MethodWrapper("DoPri4 (4 порядка)", DormandPrince4::new));
-        methodComboBox.addItem(new MethodWrapper("DoPri7 (7 порядка)", DormandPrince7::new));
-        methodComboBox.addItem(new MethodWrapper("DoPri8 (8 порядка)", DormandPrince8::new));
+        methodComboBox.addItem(new MethodWrapper("Метод Эйлера (1:1)", EULER::new));
+        methodComboBox.addItem(new MethodWrapper("Метод Трапеций (2:2)", T2::new));
+
+        methodComboBox.addItem(new MethodWrapper("Метод Средней Точки (2:2)", CRK2a::new));
+        methodComboBox.addItem(new MethodWrapper("CRK3a (3:3)", CRK3a::new));
+        methodComboBox.addItem(new MethodWrapper("CRK3b (3:3)", CRK3b::new));
+        methodComboBox.addItem(new MethodWrapper("CRK3c Метод Хойна (3:3)", CRK3c::new));
+        methodComboBox.addItem(new MethodWrapper("Классический метод Рунге-Кутта (4:4)", CRK4a::new));
+
+        methodComboBox.addItem(new MethodWrapper("Правило 3/8 Кутта (4:4)", CRK4b::new));
+        methodComboBox.addItem(new MethodWrapper("CRK4c (4:4)", CRK4c::new));
+        methodComboBox.addItem(new MethodWrapper("CRK5a Метод Кутта-Нюстрема (6:5)", CRK5a::new));
+        
+        
+        methodComboBox.addItem(new MethodWrapper("Дорман-Принс (7:4)", calc -> new DOPRI5(calc, 4)));
+
+        methodComboBox.addItem(new MethodWrapper("Дорман-Принс (7:5)", calc -> new DOPRI5(calc, 5)));
+
+        methodComboBox.addItem(new MethodWrapper("CRK6a (7:6)", CRK6a::new));
+        methodComboBox.addItem(new MethodWrapper("Метод Бутчера (7:6)", CRK6x::new));
+
+
+        methodComboBox.addItem(new MethodWrapper("Дорман-Принс (13:7)", calc -> new DOPRI8(calc, 7)));
+
+        methodComboBox.addItem(new MethodWrapper("Дорман-Принс (13:8)", calc -> new DOPRI8(calc, 8)));
+
+        
         methodComboBox.addItem(new MethodWrapper("DormandPrince853Integrator", DormandPrince853Integrator::new));
 //        methodComboBox.addItem(new MethodWrapper("AdaptiveDormandPrince853Integrator",
 //                calc -> new AdaptiveDormandPrince853Integrator(
@@ -210,8 +221,8 @@ public class RungeKuttaGUI extends JFrame {
 //            new AdaptiveDormandPrince853Integrator(minStep, maxStep, absTol, relTol);
 //                methodComboBox.addItem(new MethodWrapper("AdaptiveDormandPrince853Integrator", AdaptiveDormandPrince853Integrator::new));
 
-        methodComboBox.addItem(new MethodWrapper("Метод Эверхарта", 
-            calc -> new EverhartMethod(calc, 15, 1)));
+        methodComboBox.addItem(new MethodWrapper("Эверхарт (-:[2,32])", 
+            calc -> new Everhart(calc, 15, 1)));
         
         // Добавление полей ввода начальных условий
         inputPanel.add(new JLabel("Начальное x:"));

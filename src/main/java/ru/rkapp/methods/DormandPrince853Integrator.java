@@ -4,7 +4,8 @@ import ru.rkapp.RungeKuttaMethod;
 import ru.rkapp.RightCalculator;
 /**
  *
- * @author vniiem1
+ * Реализация метода DOPRI853 из книги Хайрера-Нёрсетта-Ваннера (Hairer, Nørsett, Wanner "Solving Ordinary Differential Equations I")
+ * 
  */
 
 
