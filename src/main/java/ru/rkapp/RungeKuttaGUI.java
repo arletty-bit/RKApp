@@ -398,13 +398,16 @@ public class RungeKuttaGUI extends JFrame {
 
             graphPanel.setErrorData(errorValues);
             graphPanel.setShowError(errorCheckBox.isSelected());
+            
+            graphPanel.setMaxError(maxError);
 
             // Вычисление средней ошибки
             double avgError = sumError / solution.size();
             // Добавление статистики в отчет
             sb.append("\nСтатистика ошибок:\n");
-            sb.append(String.format("Средняя ошибка: %e\n", avgError));
-            sb.append(String.format("Максимальная ошибка: %e\n", maxError));
+            
+            sb.append(String.format("Средняя ошибка: %.16e\n", avgError));
+            sb.append(String.format("Максимальная ошибка: %.16e\n", maxError));
 
             // Обновление области вывода результатов
             resultArea.setText(sb.toString());

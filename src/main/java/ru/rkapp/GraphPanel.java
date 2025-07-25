@@ -46,6 +46,7 @@ public class GraphPanel extends JPanel {
     private static final Font TITLE_FONT = new Font("Arial", Font.BOLD, 16);  // Шрифт заголовка
     private List<Double> yDerivative;   // Новое поле для значений производной
     private boolean showDerivative = false; // Флаг отображения производной
+    private double maxError = Double.NaN;
 
     /**
      * Устанавливает данные для отображения.
@@ -281,7 +282,7 @@ public class GraphPanel extends JPanel {
         g2.drawString("Точное", legendX + 20, currentY + 10);
         currentY += 20;
 
-// Производная (если нужно)
+// Производная 
         if (showDerivative && yDerivative != null && !yDerivative.isEmpty()) {
             g2.setColor(new Color(0, 150, 0));
             g2.fillRect(legendX, currentY, 12, 12);
@@ -290,13 +291,23 @@ public class GraphPanel extends JPanel {
             currentY += 20;
         }
 
-// Ошибка (если нужно)
+// Ошибка 
         if (showError && errorValues != null && !errorValues.isEmpty()) {
             g2.setColor(ERROR_COLOR);
             g2.fillRect(legendX, currentY, 12, 12);
             g2.setColor(Color.BLACK);
             g2.drawString("Ошибка", legendX + 20, currentY + 10);
         }
+
+        if (!Double.isNaN(maxError)) {
+            g2.setColor(Color.RED);
+            g2.setFont(new Font("Arial", Font.BOLD, 12));
+            String errorText = "Ошибка: " + String.format("%.16e", maxError);
+            int xPos = width - 230; // Правая часть графика
+            int yPos = height - 20; // Нижняя часть графика
+            g2.drawString(errorText, xPos, yPos);
+        }
+
     }
 
     /**
@@ -368,5 +379,13 @@ public class GraphPanel extends JPanel {
 
     public void setShowError(boolean show) {
         this.showError = show;
+    }
+
+    public void setMaxError(double maxError) {
+        this.maxError = maxError;
+    }
+
+    public void clearMaxError() {
+        this.maxError = Double.NaN;
     }
 }
