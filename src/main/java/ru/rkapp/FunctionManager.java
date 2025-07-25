@@ -9,6 +9,8 @@ import java.net.URI;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Динамически компилирует и выполняет пользовательские математические функции,
@@ -45,6 +47,9 @@ import java.util.Map;
  * </ul>
  */
 class FunctionManager {
+    
+    private static final Logger LOG = LogManager.getLogger(FunctionManager.class);
+
     // Хранилище сгенерированных байт-кодов [имя класса -> байт-код]
     private final Map<String, byte[]> classBytes = new HashMap<>();
     

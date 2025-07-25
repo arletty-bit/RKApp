@@ -1,5 +1,8 @@
 package ru.rkapp;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 /**
  * Абстрактный класс для явных методов Рунге-Кутты, использующих таблицу Бутчера.
  * Реализует общую логику шага интегрирования на основе коэффициентов таблицы.
@@ -24,6 +27,9 @@ package ru.rkapp;
  */
 
 public abstract class ButcherTableMethod extends RungeKuttaMethod {
+
+    private static final Logger LOG = LogManager.getLogger(ButcherTableMethod.class);
+        
     /**
      * Коэффициенты c из таблицы Бутчера
      */

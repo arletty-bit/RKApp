@@ -1,5 +1,6 @@
 package ru.rkapp.methods;
 
+import org.apache.logging.log4j.LogManager;
 import ru.rkapp.RungeKuttaMethod;
 import ru.rkapp.RightCalculator;
 /**
@@ -8,9 +9,10 @@ import ru.rkapp.RightCalculator;
  * 
  */
 
-
-
 public class DormandPrince853Integrator extends RungeKuttaMethod {
+    
+    private static final org.apache.logging.log4j.Logger LOG = LogManager.getLogger(DormandPrince853Integrator.class);
+
     private static final double sqrt6 = Math.sqrt(6.0);
     private static final int STAGES = 13;
     private double[] lastDerivative; // Для реализации FSAL

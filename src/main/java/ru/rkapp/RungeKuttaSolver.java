@@ -2,12 +2,16 @@ package ru.rkapp;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * Решатель системы ОДУ методами Рунге-Кутты. Осуществляет интегрирование
  * системы на заданное количество шагов.
  */
 public class RungeKuttaSolver {
+    
+    private static final org.apache.logging.log4j.Logger LOG = LogManager.getLogger(RungeKuttaSolver.class);
+
 
     /**
      * Решает систему ОДУ заданным методом на указанном интервале.

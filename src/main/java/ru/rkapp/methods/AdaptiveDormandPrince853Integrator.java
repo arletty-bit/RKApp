@@ -1,9 +1,13 @@
 package ru.rkapp.methods;
 
+import org.apache.logging.log4j.LogManager;
 import ru.rkapp.RungeKuttaMethod;
 import ru.rkapp.RightCalculator;
 
 public class AdaptiveDormandPrince853Integrator extends RungeKuttaMethod {
+    
+    private static final org.apache.logging.log4j.Logger LOG = LogManager.getLogger(AdaptiveDormandPrince853Integrator.class);
+
     // Константы управления шагом
     private static final double SAFETY = 0.9;
     private static final double MIN_FACTOR = 0.2;

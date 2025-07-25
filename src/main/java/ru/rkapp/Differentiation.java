@@ -3,6 +3,8 @@ package ru.rkapp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Класс для численного вычисления производных функций.
@@ -17,6 +19,8 @@ import java.util.function.Function;
  * @author arletty
  */
 public class Differentiation {
+    private static final Logger LOG = LogManager.getLogger(Differentiation.class);
+
     
     /**
      * Коэффициент по умолчанию для вычисления шага дифференцирования.

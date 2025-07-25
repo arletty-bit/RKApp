@@ -2,6 +2,7 @@ package ru.rkapp.methods;
 import ru.rkapp.RungeKuttaMethod;
 import ru.rkapp.RightCalculator;
 import java.util.Arrays;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * Реализация метода Эверхарта (Everhart's Radau/Lobatto method) для численного интегрирования 
@@ -19,6 +20,9 @@ import java.util.Arrays;
  * Ссылка: Everhart, E. (1985). "An Efficient Integrator that Uses Gauss-Radau Spacings".
  */
 public class Everhart extends RungeKuttaMethod {
+    
+    private static final org.apache.logging.log4j.Logger LOG = LogManager.getLogger(Everhart.class);
+
     
     /** Максимальный поддерживаемый порядок метода. */
     public static final int MAX_ORDER = 32;
