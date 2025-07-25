@@ -7,6 +7,7 @@ import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.logging.log4j.LogManager;
+import ru.rkapp.Ballistics.SpacecraftForcesCalculator;
 
 /**
  * Главное окно приложения для численного решения обыкновенных дифференциальных
@@ -38,7 +39,7 @@ public class RungeKuttaGUI extends JFrame {
     /**
      * Выпадающий список для выбора тестовой функции (SIN, COS, EXP и др.)
      */
-    private JComboBox<TestFunction> functionComboBox;
+    private JComboBox<Object> functionComboBox;
 
     /**
      * Выпадающий список для выбора численного метода (Эйлера, Рунге-Кутты 4-го
@@ -110,6 +111,11 @@ public class RungeKuttaGUI extends JFrame {
      * Менеджер для вычисления производных тестовой функции
      */
     private FunctionManager derivativeFunction;
+    
+        private JTextField balCoefField;
+    private JTextField initialXField, initialYField, initialZField;
+    private JTextField initialVxField, initialVyField, initialVzField;
+    private JCheckBox gskCheckBox;
 
     /**
      * Конструктор главного окна приложения.
@@ -138,6 +144,14 @@ public class RungeKuttaGUI extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
     }
+    
+        private TestFunction getSelectedFunction() {
+        Object selected = functionComboBox.getSelectedItem();
+        if (selected instanceof TestFunction) {
+            return (TestFunction) selected;
+        }
+        return StandardTestFunction.SIN; // Значение по умолчанию
+    }
 
     /**
      * Создает панель ввода параметров расчета.
@@ -146,12 +160,20 @@ public class RungeKuttaGUI extends JFrame {
      * значений - Флажки отображения
      */
     private JPanel createInputPanel() {
-        JPanel panel = new JPanel(new GridLayout(9, 2, 5, 5));
+        JPanel panel = new JPanel(new GridLayout(12, 2, 5, 5));
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         panel.add(new JLabel("Функция:"));
-        functionComboBox = new JComboBox<>(TestFunction.values());
+        functionComboBox = new JComboBox<>();
         panel.add(functionComboBox);
+        
+                // Добавляем стандартные функции
+        for (StandardTestFunction func : StandardTestFunction.values()) {
+            functionComboBox.addItem(func);
+        }
+        
+        // Добавляем функцию движения КА
+        functionComboBox.addItem(new SpacecraftFunction());
 
         panel.add(new JLabel("Метод:"));
         methodComboBox = new JComboBox<>();
@@ -166,6 +188,39 @@ public class RungeKuttaGUI extends JFrame {
         errorCheckBox = new JCheckBox("Показать");
         errorCheckBox.setSelected(true);
         panel.add(errorCheckBox);
+        
+        // Добавляем новые поля для параметров КА
+        panel.add(new JLabel("Бал. коэффициент:"));
+        balCoefField = new JTextField("0.0413");
+        panel.add(balCoefField);
+        
+        panel.add(new JLabel("Нач. X (км):"));
+        initialXField = new JTextField("7000.0");
+        panel.add(initialXField);
+        
+        panel.add(new JLabel("Нач. Y (км):"));
+        initialYField = new JTextField("0.0");
+        panel.add(initialYField);
+        
+        panel.add(new JLabel("Нач. Z (км):"));
+        initialZField = new JTextField("0.0");
+        panel.add(initialZField);
+        
+        panel.add(new JLabel("Нач. Vx (км/с):"));
+        initialVxField = new JTextField("0.0");
+        panel.add(initialVxField);
+        
+        panel.add(new JLabel("Нач. Vy (км/с):"));
+        initialVyField = new JTextField("7.5");
+        panel.add(initialVyField);
+        
+        panel.add(new JLabel("Нач. Vz (км/с):"));
+        initialVzField = new JTextField("0.0");
+        panel.add(initialVzField);
+        
+        panel.add(new JLabel("Система координат:"));
+        gskCheckBox = new JCheckBox("ГСК", true);
+        panel.add(gskCheckBox);
 
         addInputFields(panel);
 
@@ -196,8 +251,15 @@ public class RungeKuttaGUI extends JFrame {
         methodComboBox.addItem(new MethodWrapper("DormandPrince853Integrator", DormandPrince853Integrator::new));
 //        methodComboBox.addItem(new MethodWrapper("AdaptiveDormandPrince853Integrator",
 //                calc -> new AdaptiveDormandPrince853Integrator(calc, 1e-8, 0.1, 1e-8, 1e-8)));
+            
+        methodComboBox.addItem(new MethodWrapper("Метод Эверхарта (15)", 
+            calc -> new Everhart(calc, 15, 6)));
+    
+    
     }
 
+    
+    
     /**
      * Добавляет поля ввода на указанную панель.
      *
@@ -346,6 +408,11 @@ public class RungeKuttaGUI extends JFrame {
         try {
             CalculationParameters params = parseInputParameters();
             validateParameters(params);
+            
+             if (params.getFunction() == SpacecraftFunction.SPACECRAFT) {
+                calculateSpacecraftMotion(params);
+                return;
+            }
 
             double h = (params.getMaxX() - params.getMinX()) / params.getSteps();
             setupFunctionManagers(params.getFunction());
@@ -367,6 +434,136 @@ public class RungeKuttaGUI extends JFrame {
         }
     }
 
+    
+    
+        // Новый метод для расчета движения КА
+private void calculateSpacecraftMotion(CalculationParameters params) {
+    try {
+        double h = (params.getMaxX() - params.getMinX()) / params.getSteps();
+        
+        // Создаем калькулятор сил
+        SpacecraftForcesCalculator calculator = new SpacecraftForcesCalculator();
+        calculator.setBallisticCoefficient(Double.parseDouble(balCoefField.getText()));
+        calculator.setCurrentDate(1, 1, 2023); // Установка даты
+        
+        // Создаем метод интегрирования
+        MethodWrapper methodWrapper = params.getMethodWrapper();
+        RungeKuttaMethod method = methodWrapper.createMethod(calculator);
+        
+        // Начальные условия
+        double[] y0 = new double[6];
+        y0[0] = Double.parseDouble(initialXField.getText());
+        y0[1] = Double.parseDouble(initialYField.getText());
+        y0[2] = Double.parseDouble(initialZField.getText());
+        y0[3] = Double.parseDouble(initialVxField.getText());
+        y0[4] = Double.parseDouble(initialVyField.getText());
+        y0[5] = Double.parseDouble(initialVzField.getText());
+        
+        // Выполняем расчет
+        List<double[]> solution;
+        if (gskCheckBox.isSelected()) {
+            // Решаем в ГСК
+            solution = RungeKuttaSolver.solve(method, params.getMinX(), y0, h, params.getSteps(), null);
+        } else {
+            // Преобразуем в ИСК -> решаем -> преобразуем обратно в ГСК
+            double[] y0ISK = new double[6];
+            calculator.convertGSKtoISK(params.getMinX(), y0, y0ISK);
+            solution = RungeKuttaSolver.solve(method, params.getMinX(), y0ISK, h, params.getSteps(), null);
+            
+            for (int i = 0; i < solution.size(); i++) {
+                double[] stateISK = solution.get(i);
+                double[] stateGSK = new double[6];
+                double t = params.getMinX() + i * h;
+                calculator.convertISKtoGSK(t, stateISK, stateGSK);
+                solution.set(i, stateGSK);
+            }
+        }
+        
+        // Подготовка данных для 3D визуализации
+        VisualizationData data = prepareSpacecraftVisualizationData(params, solution, h);
+        updateGraph(data);
+        generateSpacecraftReport(params, solution, data, h);
+        
+    } catch (NumberFormatException ex) {
+        throw new IllegalArgumentException("Ошибка ввода параметров КА");
+    }
+}
+
+    
+    
+        // Метод для подготовки данных визуализации движения КА
+ private VisualizationData prepareSpacecraftVisualizationData(
+        CalculationParameters params, List<double[]> solution, double h) {
+    
+    List<Double> xValues = new ArrayList<>();
+    List<Double> yValues = new ArrayList<>();
+    List<Double> zValues = new ArrayList<>();
+    List<Double> exactValues = new ArrayList<>(); 
+    List<Double> derivativeValues = new ArrayList<>();
+    List<Double> errorValues = new ArrayList<>();
+    
+    for (double[] state : solution) {
+        xValues.add(state[0]); // X координата
+        yValues.add(state[1]); // Y координата
+        zValues.add(state[2]); // Z координата
+    }
+    
+    return new VisualizationData(
+        xValues, yValues, exactValues, derivativeValues, errorValues,
+        0, 0 
+    ) {
+        @Override
+        public List<Double> getZValues() {
+            return zValues;
+        }
+    };
+}
+    
+    // Метод для генерации отчета по движению КА
+    private void generateSpacecraftReport(
+            CalculationParameters params, List<double[]> solution, 
+            VisualizationData data, double h) {
+        
+        StringBuilder sb = new StringBuilder();
+        appendSpacecraftHeaderInfo(sb, params, h);
+        appendSpacecraftResultsTable(sb, params, solution, data, h);
+        
+        resultArea.setText(sb.toString());
+        tabbedPane.setSelectedIndex(0);
+    }
+    
+    private void appendSpacecraftHeaderInfo(StringBuilder sb, CalculationParameters params, double h) {
+        sb.append("Метод: ").append(params.getMethodWrapper().toString()).append("\n");
+        sb.append("Функция: ").append(params.getFunction().toString()).append("\n");
+        sb.append("Бал. коэффициент: ").append(balCoefField.getText()).append("\n");
+        sb.append("Начальные условия:\n");
+        sb.append(String.format("  Положение: [%s, %s, %s] км\n", 
+            initialXField.getText(), initialYField.getText(), initialZField.getText()));
+        sb.append(String.format("  Скорость: [%s, %s, %s] км/с\n", 
+            initialVxField.getText(), initialVyField.getText(), initialVzField.getText()));
+        sb.append("Параметры расчета:\n");
+        sb.append(String.format("  Время: от %.1f до %.1f с, шагов: %d, h = %.6f с\n",
+            params.getMinX(), params.getMaxX(), params.getSteps(), h));
+        sb.append("Система координат: ").append(gskCheckBox.isSelected() ? "ГСК" : "ИСК").append("\n\n");
+    }
+    
+    private void appendSpacecraftResultsTable(
+            StringBuilder sb, CalculationParameters params,
+            List<double[]> solution, VisualizationData data, double h) {
+        
+        sb.append("Результаты:\n");
+        sb.append(String.format("%-10s %-15s %-15s %-15s %-15s %-15s %-15s\n", 
+            "t, с", "X, км", "Y, км", "Z, км", "Vx, км/с", "Vy, км/с", "Vz, км/с"));
+
+        for (int i = 0; i < solution.size(); i++) {
+            double t = params.getMinX() + i * h;
+            double[] state = solution.get(i);
+            
+            sb.append(String.format("%-10.1f %-15.3f %-15.3f %-15.3f %-15.6f %-15.6f %-15.6f\n",
+                t, state[0], state[1], state[2], state[3], state[4], state[5]));
+        }
+    }
+    
     /**
      * Парсит входные параметры из полей ввода.
      *
@@ -764,6 +961,8 @@ public class RungeKuttaGUI extends JFrame {
          * Средняя ошибка на интервале.
          */
         private final double avgError;
+        
+         private final List<Double> zValues;
 
         /**
          * Создаёт объект с данными для визуализации.
@@ -776,9 +975,9 @@ public class RungeKuttaGUI extends JFrame {
          * @param maxError Максимальная ошибка
          * @param avgError Средняя ошибка
          */
-        public VisualizationData(List<Double> xValues, List<Double> yValues, List<Double> exactValues,
-                List<Double> derivativeValues, List<Double> errorValues,
-                double maxError, double avgError) {
+        public VisualizationData(List<Double> xValues, List<Double> yValues, 
+                           List<Double> exactValues, List<Double> derivativeValues,
+                           List<Double> errorValues, double maxError, double avgError) {
             this.xValues = xValues;
             this.yValues = yValues;
             this.exactValues = exactValues;
@@ -786,6 +985,7 @@ public class RungeKuttaGUI extends JFrame {
             this.errorValues = errorValues;
             this.maxError = maxError;
             this.avgError = avgError;
+            this.zValues = new ArrayList<>();
         }
 
         /**
@@ -795,6 +995,9 @@ public class RungeKuttaGUI extends JFrame {
             return xValues;
         }
 
+            public List<Double> getZValues() {
+        return zValues;
+    }
         /**
          * Возвращает численные решения Y.
          */

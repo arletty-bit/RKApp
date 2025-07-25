@@ -3,6 +3,8 @@ package ru.rkapp;
 import javax.swing.*;
 import java.awt.*;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -119,7 +121,9 @@ public class GraphPanel extends JPanel {
      * Максимальное значение ошибки для отображения в специальном поле.
      */
     private double maxError = Double.NaN;
-
+    
+private List<Double> yValues;
+private List<Double> zValues;
     /**
      * Устанавливает основные данные для отображения графиков.
      *
@@ -133,7 +137,17 @@ public class GraphPanel extends JPanel {
         this.yExact = yExact;
         repaint();
     }
+    
+        public void setZValues(List<Double> zValues) {
+        this.zValues = zValues;
+    }
+    
 
+        public GraphPanel() {
+    xValues = new ArrayList<>();
+    yValues = new ArrayList<>();
+    zValues = new ArrayList<>();
+}
     /**
      * Устанавливает значения производной для отображения на графике.
      *
@@ -226,8 +240,62 @@ public class GraphPanel extends JPanel {
         drawExactSolution(g2, minX, minY, xScale, yScale, width, height);
         drawLegend(g2, width, height);
         drawMaxError(g2, width, height);
+        
+                if (zValues != null && !zValues.isEmpty()) {
+            draw3DProjection(g);
+        }
     }
 
+        private void draw3DProjection(Graphics g) {
+        int width = getWidth();
+        int height = getHeight();
+        int margin = 50;
+        
+        // Находим диапазоны значений
+        double minX = Collections.min(xValues);
+        double maxX = Collections.max(xValues);
+        double minY = Collections.min(yValues);
+        double maxY = Collections.max(yValues);
+        double minZ = Collections.min(zValues);
+        double maxZ = Collections.max(zValues);
+        
+        // Масштабирующие коэффициенты
+        double xScale = (width - 2 * margin) / (maxX - minX);
+        double yScale = (height - 2 * margin) / (maxY - minY);
+        double zScale = (height - 2 * margin) / (maxZ - minZ) * 0.5;
+        
+        // Рисуем оси
+        g.setColor(Color.BLACK);
+        g.drawLine(margin, height - margin, width - margin, height - margin); // X ось
+        g.drawLine(margin, height - margin, margin, margin); // Y ось
+        g.drawLine(margin, height - margin, margin + 50, height - margin - 50); // Z ось
+        
+        // Рисуем подписи осей
+        g.drawString("X", width - margin + 5, height - margin);
+        g.drawString("Y", margin, margin - 5);
+        g.drawString("Z", margin + 55, height - margin - 55);
+        
+        // Рисуем траекторию
+        g.setColor(Color.BLUE);
+        for (int i = 1; i < xValues.size(); i++) {
+            int x1 = margin + (int)((xValues.get(i-1) - minX) * xScale);
+            int y1 = height - margin - (int)((yValues.get(i-1) - minY) * yScale);
+            int z1 = (int)((zValues.get(i-1) - minZ) * zScale);
+            
+            int x2 = margin + (int)((xValues.get(i) - minX) * xScale);
+            int y2 = height - margin - (int)((yValues.get(i) - minY) * yScale);
+            int z2 = (int)((zValues.get(i) - minZ) * zScale);
+            
+            // Простая изометрическая проекция
+            int px1 = x1 - z1;
+            int py1 = y1 - z1/2;
+            int px2 = x2 - z2;
+            int py2 = y2 - z2/2;
+            
+            g.drawLine(px1, py1, px2, py2);
+            draw3DTrajectory(g);
+        }
+    }
     /**
      * Включает сглаживание для графики.
      *
@@ -624,4 +692,50 @@ public class GraphPanel extends JPanel {
 
         g2.drawPolyline(xPoints, yPoints, xPoints.length);
     }
+    
+    private void draw3DTrajectory(Graphics g) {
+    if (zValues == null || zValues.isEmpty()) return;
+    
+    int width = getWidth();
+    int height = getHeight();
+    int margin = 80;
+    
+    // Масштабирование
+    double minX = Collections.min(xValues);
+    double maxX = Collections.max(xValues);
+    double minY = Collections.min(yValues);
+    double maxY = Collections.max(yValues);
+    double minZ = Collections.min(zValues);
+    double maxZ = Collections.max(zValues);
+    
+    double scaleX = (width - 2 * margin) / (maxX - minX);
+    double scaleY = (height - 2 * margin) / (maxY - minY);
+    double scaleZ = Math.min(scaleX, scaleY) * 0.5; // Масштаб для глубины
+    
+    // Оси
+    g.setColor(Color.BLACK);
+    g.drawLine(margin, height - margin, width - margin, height - margin); // X
+    g.drawLine(margin, height - margin, margin, margin); // Y
+    g.drawLine(margin, height - margin, margin + 50, height - margin - 50); // Z
+    
+    // Траектория
+    g.setColor(Color.BLUE);
+    for (int i = 1; i < xValues.size(); i++) {
+        int x1 = margin + (int) ((xValues.get(i-1) - minX) * scaleX);
+        int y1 = height - margin - (int) ((yValues.get(i-1) - minY) * scaleY);
+        int z1 = (int) ((zValues.get(i-1) - minZ) * scaleZ);
+        
+        int x2 = margin + (int) ((xValues.get(i) - minX) * scaleX);
+        int y2 = height - margin - (int) ((yValues.get(i) - minY) * scaleY);
+        int z2 = (int) ((zValues.get(i) - minZ) * scaleZ);
+        
+        // Изометрическая проекция
+        int px1 = x1 - z1;
+        int py1 = y1 - z1/2;
+        int px2 = x2 - z2;
+        int py2 = y2 - z2/2;
+        
+        g.drawLine(px1, py1, px2, py2);
+    }
+}
 }
