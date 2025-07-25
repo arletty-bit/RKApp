@@ -5,7 +5,14 @@ package ru.rkapp;
  * экземпляров и отображение в пользовательском интерфейсе.
  */
 public class MethodWrapper {
+    /**
+     * Название метода для отображения в интерфейсе.
+     */
     private final String name;
+    
+    /**
+     * Фабричная функция для создания экземпляра метода.
+     */
     private final java.util.function.Function<RightCalculator, RungeKuttaMethod> factory;
 
     /**

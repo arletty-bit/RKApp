@@ -11,15 +11,6 @@ import java.util.function.Function;
  * <li>Функцию вычисления производной</li>
  * </ul>
  */
-/**
- * Перечисление тестовых функций для верификации методов Рунге-Кутты. Каждая
- * функция содержит:
- * <ul>
- * <li>Математическое выражение</li>
- * <li>Функцию вычисления значения</li>
- * <li>Функцию вычисления производной</li>
- * </ul>
- */
 public enum TestFunction {
     SIN("sin(x)", "Math.sin(x)",
             x -> Math.sin(x),
@@ -41,17 +32,33 @@ public enum TestFunction {
             x -> 1.0 / x);
     ;
 
-    private final String name;          // Название функции
-    private final Function<Double, Double> function;   // Функция вычисления значения
-    private final Function<Double, Double> derivative; // Функция вычисления производной
+    /**
+     * Название функции.
+     */
+    private final String name;
+
+    /**
+     * Математическое выражение функции в виде строки.
+     */
     private final String expression;
+
+    /**
+     * Функция вычисления значения в точке.
+     */
+    private final Function<Double, Double> function;
+
+    /**
+     * Функция вычисления аналитической производной.
+     */
+    private final Function<Double, Double> derivative;
 
     /**
      * Конструктор тестовой функции.
      *
      * @param name название функции
-     * @param function лямбда-выражение для вычисления значения
-     * @param derivative лямбда-выражение для вычисления производной
+     * @param expression математическое выражение
+     * @param function функция вычисления значения
+     * @param derivative функция вычисления производной
      */
     TestFunction(String name, String expression,
             Function<Double, Double> function,
@@ -74,26 +81,39 @@ public enum TestFunction {
     }
 
     /**
-     * Вычисляет значение производной функции в точке x.
+     * Вычисляет аналитическое значение производной функции в точке x.
      *
      * @param x аргумент функции
-     * @return значение производной
+     * @return значение аналитической производной в точке x
      */
     public double derivative(double x) {
         return derivative.apply(x);
     }
 
-    // Численная производная (через центральную разностную схему)
+    /**
+     * Вычисляет численное значение производной функции в точке x с
+     * использованием центральной разностной схемы.
+     * <p>
+     * Формула: f'(x) ≈ [f(x + h) - f(x - h)] / (2h)
+     *
+     * @param x точка вычисления производной
+     * @return численное значение производной в точке x
+     */
     public double numericalDerivative(double x) {
         return Differentiation.derivative(function, x);
     }
 
+    /**
+     * Возвращает математическое выражение функции в виде строки.
+     *
+     * @return строковое представление математического выражения функции
+     */
     public String getExpression() {
         return expression;
     }
 
     /**
-     * Возвращает строковое представление функции.
+     * Возвращает строковое название функции.
      *
      * @return название функции
      */

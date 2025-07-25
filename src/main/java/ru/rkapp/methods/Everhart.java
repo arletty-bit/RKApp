@@ -584,9 +584,13 @@ public class Everhart extends RungeKuttaMethod {
                 if (!rightCalculator.compute(t, y0, f0, parm)) {
                     return false;
                 }
+            } else {
+                // Вычислить и сохранить lastF для Лобатто
+                rightCalculator.compute(t + h, yNew, lastF, parm);
             }
+
         }
-        
+
         // Копирование коэффициентов для безопасного использования
         if (stepCount < 2) {
             for (int i = 0; i < points; i++) {
@@ -677,9 +681,9 @@ public class Everhart extends RungeKuttaMethod {
         }
 
         // Сохранение состояния
-        if (!isRadau) {
-            System.arraycopy(lastF, 0, f0, 0, numberOfEquations);
-        }
+//        if (!isRadau) {
+//            System.arraycopy(lastF, 0, f0, 0, numberOfEquations);
+//        }
         
         previousStepSize = h;
         stepCount++;
