@@ -22,6 +22,18 @@ public class SpacecraftForcesCalculator implements RightCalculator {
     private static final double omEarth = 7.292115E-5; // Угловая скорость вращения Земли, рад/с
     private static final double flat = 1.0/298.257; // Сжатие Земли
     
+        // Эпоха J2000 в модифицированных юлианских днях (MJD)
+    private static final double MJD_J2000 = 51544.5;
+    
+        // Константы для преобразования даты
+    private static final int[][] MONTH_DAYS = {
+        {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}, // Не високосный
+        {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}  // Високосный
+    };
+    
+     // Время в секундах от эпохи J2000
+    private double secondsSinceJ2000 = 0.0;
+    
     // Гармоники гравитационного поля (C и S коэффициенты)
     private static final double[][] C = {
         {-1.082627e-03, -2.414000e-10, 1.574572e-06},
@@ -81,6 +93,65 @@ public class SpacecraftForcesCalculator implements RightCalculator {
         this.month = month;
         this.year = year;
     }
+    
+    
+       /**
+     * Устанавливает текущую дату и время для расчета.
+     * 
+     * @param year год (полный, например 2023)
+     * @param month месяц (1-12)
+     * @param day день (1-31)
+     * @param hour час (0-23)
+     * @param minute минута (0-59)
+     * @param second секунда (0-59)
+     */
+    public void setDateTime(int year, int month, int day, int hour, int minute, double second) {
+        double mjd = dateToMJD(year, month, day, hour, minute, second);
+        this.secondsSinceJ2000 = (mjd - MJD_J2000) * 86400.0;
+    }
+    
+    /**
+     * Преобразует дату и время в модифицированную юлианскую дату (MJD).
+     * 
+     * @param year год
+     * @param month месяц (1-12)
+     * @param day день (1-31)
+     * @param hour час (0-23)
+     * @param minute минута (0-59)
+     * @param second секунда (0-59)
+     * @return модифицированная юлианская дата
+     */
+    private double dateToMJD(int year, int month, int day, int hour, int minute, double second) {
+        // Проверка на високосный год
+        int leap = ((year % 4 == 0) && ((year % 100 != 0) || (year % 400 == 0))) ? 1 : 0;
+        
+        // Расчет номера дня в году
+        int dayOfYear = day;
+        for (int i = 1; i < month; i++) {
+            dayOfYear += MONTH_DAYS[leap][i - 1];
+        }
+        
+        // Расчет юлианской даты
+        int a = (14 - month) / 12;
+        int y = year + 4800 - a;
+        int m = month + 12 * a - 3;
+        int jdn = day + (153 * m + 2) / 5 + 365 * y + y / 4 - y / 100 + y / 400 - 32045;
+        
+        // Модифицированная юлианская дата
+        double mjd = jdn - 2400000.5;
+        
+        // Добавляем время суток
+        double timeFraction = (hour + minute / 60.0 + second / 3600.0) / 24.0;
+        return mjd + timeFraction;
+    }
+    
+    /**
+     * Возвращает время в секундах с эпохи J2000.
+     */
+    public double getSecondsSinceJ2000() {
+        return secondsSinceJ2000;
+    }
+    
     
     /**
      * Вычисляет правые части уравнений движения КА.
@@ -313,9 +384,9 @@ public class SpacecraftForcesCalculator implements RightCalculator {
     /**
      * Преобразует координаты из ИСК в ГСК (аналог функции gsc из V2.c).
      */
-    public void convertISKtoGSK(double t, double[] iskState, double[] gskState) {
-        // Расчет звездного времени
-        double[] starTime = calculateStarTime(t);
+public void convertISKtoGSK(double tRelative, double[] iskState, double[] gskState) {
+    double tAbsolute = secondsSinceJ2000 + tRelative;
+    double[] starTime = calculateStarTime(tAbsolute);
         double cosS = starTime[0];
         double sinS = starTime[1];
         
@@ -333,9 +404,10 @@ public class SpacecraftForcesCalculator implements RightCalculator {
     /**
      * Преобразует координаты из ГСК в ИСК (аналог функции isc из V2.c).
      */
-    public void convertGSKtoISK(double t, double[] gskState, double[] iskState) {
+  public void convertGSKtoISK(double tRelative, double[] gskState, double[] iskState) {
         // Расчет звездного времени
-        double[] starTime = calculateStarTime(t);
+           double tAbsolute = secondsSinceJ2000 + tRelative;
+    double[] starTime = calculateStarTime(tAbsolute);
         double cosS = starTime[0];
         double sinS = starTime[1];
         
@@ -350,40 +422,59 @@ public class SpacecraftForcesCalculator implements RightCalculator {
         iskState[5] = gskState[5];
     }
     
-    /**
-     * Расчет звездного времени (аналог AstroTime_2000 из V2.c).
+//    /**
+//     * Расчет звездного времени (аналог AstroTime_2000 из V2.c).
+//     */
+//    private double[] calculateStarTime(double t) {
+//        double dMU = 0.002737811906;
+//        double time = 43200.0;
+//        double dS = 0.0;
+//        
+//        // Расчет модифицированной юлианской даты
+//        double dateTime = calcIntervalDateTimeBase(t, day, month, year);
+//        double Tm = dateTime - Math.floor(dateTime);
+//        
+//        if (Tm >= 0.125) {
+//            dS = 2 * Math.PI * (Tm - 0.125) * (1 + dMU);
+//        } else {
+//            dS = 2 * Math.PI * (Tm + 0.875) * (1 + dMU);
+//        }
+//        
+//        // Расчет звездного времени
+//        int den2000 = 1, mes2000 = 1, god2000 = 2000;
+//        double T = (Math.floor(dateTime - 0.125) - calcIntervalDateTimeBase(time, den2000, mes2000, god2000)) / 36525.0;
+//        
+//        double Om = 450160.280 - 6962890.539 * T + 7.455 * Math.pow(T, 2) + 0.008 * Math.pow(T, 3);
+//        double dPsi = -17.1996 * Math.sin(Om / 3600.0 / 180.0 * Math.PI);
+//        
+//        double So = (24110.54841 + 8640184.812866 * T + 0.093104 * Math.pow(T, 2) 
+//                  - 0.0000062 * Math.pow(T, 3) + 0.061165 * dPsi) / 86400.0 * 2 * Math.PI;
+//        
+//        So = So - Math.floor(So / (2 * Math.PI)) * 2 * Math.PI;
+//        double S = So + dS;
+//        S = S - Math.floor(S / (2 * Math.PI)) * 2 * Math.PI;
+//        
+//        return new double[]{Math.cos(S), Math.sin(S)};
+//    }
+  
+    
+      /**   * Обновленный метод для расчета звездного времени с учетом эпохи J2000.
      */
     private double[] calculateStarTime(double t) {
-        double dMU = 0.002737811906;
-        double time = 43200.0;
-        double dS = 0.0;
-        
-        // Расчет модифицированной юлианской даты
-        double dateTime = calcIntervalDateTimeBase(t, day, month, year);
-        double Tm = dateTime - Math.floor(dateTime);
-        
-        if (Tm >= 0.125) {
-            dS = 2 * Math.PI * (Tm - 0.125) * (1 + dMU);
-        } else {
-            dS = 2 * Math.PI * (Tm + 0.875) * (1 + dMU);
-        }
+        // Общее время с учетом эпохи J2000
+        double totalSeconds = secondsSinceJ2000 + t;
+        double daysSinceJ2000 = totalSeconds / 86400.0;
         
         // Расчет звездного времени
-        int den2000 = 1, mes2000 = 1, god2000 = 2000;
-        double T = (Math.floor(dateTime - 0.125) - calcIntervalDateTimeBase(time, den2000, mes2000, god2000)) / 36525.0;
+        double T = daysSinceJ2000 / 36525.0;
+        double gmst = 24110.54841 + 8640184.812866 * T + 0.093104 * T*T - 0.0000062 * T*T*T;
         
-        double Om = 450160.280 - 6962890.539 * T + 7.455 * Math.pow(T, 2) + 0.008 * Math.pow(T, 3);
-        double dPsi = -17.1996 * Math.sin(Om / 3600.0 / 180.0 * Math.PI);
+        // Нормализация
+        gmst = Math.toRadians(gmst / 3600.0 % 360.0);
         
-        double So = (24110.54841 + 8640184.812866 * T + 0.093104 * Math.pow(T, 2) 
-                  - 0.0000062 * Math.pow(T, 3) + 0.061165 * dPsi) / 86400.0 * 2 * Math.PI;
-        
-        So = So - Math.floor(So / (2 * Math.PI)) * 2 * Math.PI;
-        double S = So + dS;
-        S = S - Math.floor(S / (2 * Math.PI)) * 2 * Math.PI;
-        
-        return new double[]{Math.cos(S), Math.sin(S)};
+        return new double[]{Math.cos(gmst), Math.sin(gmst)};
     }
+    
     
     /**
      * Расчет интервала времени (аналог CalcIntervalDateTimeBase из V2.c).

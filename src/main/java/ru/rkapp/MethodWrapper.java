@@ -36,6 +36,7 @@ public class MethodWrapper {
     public RungeKuttaMethod createMethod(RightCalculator calculator) {
         return factory.apply(calculator);
     }
+    
 
     /**
      * Возвращает название метода.

@@ -422,7 +422,8 @@ public class Everhart extends RungeKuttaMethod {
     
     /** Счетчик выполненных шагов. */
     private long stepCount = 0;
-    
+
+
     /**
      * Конструктор метода Эверхарта.
      * 
@@ -786,12 +787,14 @@ public class Everhart extends RungeKuttaMethod {
                 pVector[eq] = tau * (bCoeffs[j][eq] + pVector[eq]);
             }
         }
-        
+
         for (int eq = 0; eq < numberOfEquations; eq++) {
             result[eq] = y[eq] + h * tau * f0[eq] + h * tau * pVector[eq];
         }
+
+
     }
-    
+
    /**
      * Интерполирует решение в заданный момент времени внутри последнего шага
      * 
@@ -799,8 +802,10 @@ public class Everhart extends RungeKuttaMethod {
      * @param y     Массив для записи результата
      * @return      true если интерполяция успешна, иначе false
      */
+    @Override
     public boolean interpolate(double t, double[] y) {
-        if (isFirstStep) {
+       
+        if (isFirstStep || stepSize == 0) {
             return false;
         }
         
@@ -809,8 +814,13 @@ public class Everhart extends RungeKuttaMethod {
         }
         
         double tau = (t - stepBeginTime) / stepSize;
-        int points = order / 2;
         
+        int points = order / 2;
+
+        if (tau < 0 || tau > 1) {
+            return false;
+        }
+
         calculateSolution(tau, points, stepSize, y0, f0, y);
         return true;
     }

@@ -5,9 +5,11 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import ru.rkapp.Ballistics.SpacecraftForcesCalculator;
+import ru.rkapp.Ballistics.SpacecraftMotionSolverV2;
 
 /**
  * Главное окно приложения для численного решения обыкновенных дифференциальных
@@ -112,11 +114,27 @@ public class RungeKuttaGUI extends JFrame {
      */
     private FunctionManager derivativeFunction;
     
+    
+    
         private JTextField balCoefField;
     private JTextField initialXField, initialYField, initialZField;
     private JTextField initialVxField, initialVyField, initialVzField;
     private JCheckBox gskCheckBox;
+    
+        private JPanel spacecraftPanel;
+    private JPanel commonParamsPanel;
+    
+        // Добавляем новую панель для графиков состояния КА
+    private SpacecraftStateGraphPanel spacecraftStateGraphPanel;
+    
+    private JTextField stepField;   // для шага интегрирования (сек)
+private JTextField timeField;   // для времени прогноза (сек)
 
+private JTextField yearField, monthField, dayField;
+private JTextField hourField, minuteField, secondField;
+
+    private JTextField interpolationPointsField;
+    
     /**
      * Конструктор главного окна приложения.
      *
@@ -124,8 +142,8 @@ public class RungeKuttaGUI extends JFrame {
      * Устанавливает обработчики событий - Задает начальные параметры
      */
     public RungeKuttaGUI() {
-        configureMainWindow();
-        JPanel inputPanel = createInputPanel();
+         configureMainWindow();
+        JTabbedPane inputPanel = createInputPanel();
         JPanel resultPanel = createResultPanel();
         add(inputPanel, BorderLayout.NORTH);
         add(resultPanel, BorderLayout.CENTER);
@@ -144,14 +162,16 @@ public class RungeKuttaGUI extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
     }
-    
-        private TestFunction getSelectedFunction() {
+
+    private TestFunction getSelectedFunction() {
         Object selected = functionComboBox.getSelectedItem();
-        if (selected instanceof TestFunction) {
-            return (TestFunction) selected;
-        }
-        return StandardTestFunction.SIN; // Значение по умолчанию
+        if (selected instanceof StandardTestFunction) {
+            return (StandardTestFunction) selected;
+        } else if (selected == SpacecraftFunction.SPACECRAFT) {
+            return SpacecraftFunction.SPACECRAFT;
     }
+    return StandardTestFunction.SIN;
+}
 
     /**
      * Создает панель ввода параметров расчета.
@@ -159,74 +179,244 @@ public class RungeKuttaGUI extends JFrame {
      * @return Панель с компонентами: - Выбор функции/метода - Поля ввода
      * значений - Флажки отображения
      */
-    private JPanel createInputPanel() {
-        JPanel panel = new JPanel(new GridLayout(12, 2, 5, 5));
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-
-        panel.add(new JLabel("Функция:"));
-        functionComboBox = new JComboBox<>();
-        panel.add(functionComboBox);
+    private JTabbedPane createInputPanel() {
+        JTabbedPane inputTabs = new JTabbedPane();
         
-                // Добавляем стандартные функции
+        // Вкладка общих параметров
+        commonParamsPanel = new JPanel(new GridBagLayout());
+        commonParamsPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        inputTabs.addTab("Основные параметры", commonParamsPanel);
+        
+        // Вкладка параметров КА
+        spacecraftPanel = new JPanel(new GridBagLayout());
+        spacecraftPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        inputTabs.addTab("Параметры КА", spacecraftPanel);
+        
+        initCommonParams();
+        initSpacecraftParams();
+        
+        return inputTabs;
+    }
+
+        private void initCommonParams() {
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.anchor = GridBagConstraints.WEST;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        
+        // Строка 0: Функция
+        gbc.gridx = 0; gbc.gridy = 0;
+        commonParamsPanel.add(new JLabel("Функция:"), gbc);
+        
+        gbc.gridx = 1;
+        functionComboBox = new JComboBox<>();
         for (StandardTestFunction func : StandardTestFunction.values()) {
             functionComboBox.addItem(func);
         }
+        functionComboBox.addItem(SpacecraftFunction.SPACECRAFT);
+        commonParamsPanel.add(functionComboBox, gbc);
         
-        // Добавляем функцию движения КА
-        functionComboBox.addItem(new SpacecraftFunction());
-
-        panel.add(new JLabel("Метод:"));
+        // Строка 1: Метод
+        gbc.gridx = 0; gbc.gridy = 1;
+        commonParamsPanel.add(new JLabel("Метод:"), gbc);
+        
+        gbc.gridx = 1;
         methodComboBox = new JComboBox<>();
         initializeMethods();
-        panel.add(methodComboBox);
-
-        panel.add(new JLabel("Производная:"));
-        derivativeCheckBox = new JCheckBox("Показать");
-        panel.add(derivativeCheckBox);
-
-        panel.add(new JLabel("Ошибка:"));
-        errorCheckBox = new JCheckBox("Показать");
+        commonParamsPanel.add(methodComboBox, gbc);
+        
+        // Строка 2: Флажки
+        gbc.gridx = 0; gbc.gridy = 2;
+        derivativeCheckBox = new JCheckBox("Показать производную");
+        commonParamsPanel.add(derivativeCheckBox, gbc);
+        
+        gbc.gridx = 1;
+        errorCheckBox = new JCheckBox("Показать ошибку");
         errorCheckBox.setSelected(true);
-        panel.add(errorCheckBox);
+        commonParamsPanel.add(errorCheckBox, gbc);
         
-        // Добавляем новые поля для параметров КА
-        panel.add(new JLabel("Бал. коэффициент:"));
-        balCoefField = new JTextField("0.0413");
-        panel.add(balCoefField);
+        // Разделитель
+        gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 2;
+        commonParamsPanel.add(new JSeparator(), gbc);
         
-        panel.add(new JLabel("Нач. X (км):"));
-        initialXField = new JTextField("7000.0");
-        panel.add(initialXField);
+        // Параметры расчета
+        gbc.gridwidth = 1;
+        gbc.gridy = 4;
+        gbc.gridx = 0;
+        commonParamsPanel.add(new JLabel("Начальное x:"), gbc);
         
-        panel.add(new JLabel("Нач. Y (км):"));
-        initialYField = new JTextField("0.0");
-        panel.add(initialYField);
+        gbc.gridx = 1;
+        x0Field = new JTextField("0.0");
+        commonParamsPanel.add(x0Field, gbc);
         
-        panel.add(new JLabel("Нач. Z (км):"));
-        initialZField = new JTextField("0.0");
-        panel.add(initialZField);
+        gbc.gridy = 5;
+        gbc.gridx = 0;
+        commonParamsPanel.add(new JLabel("Начальное y:"), gbc);
         
-        panel.add(new JLabel("Нач. Vx (км/с):"));
-        initialVxField = new JTextField("0.0");
-        panel.add(initialVxField);
+        gbc.gridx = 1;
+        y0Field = new JTextField("0.0");
+        commonParamsPanel.add(y0Field, gbc);
         
-        panel.add(new JLabel("Нач. Vy (км/с):"));
-        initialVyField = new JTextField("7.5");
-        panel.add(initialVyField);
+        gbc.gridy = 6;
+        gbc.gridx = 0;
+        commonParamsPanel.add(new JLabel("Min X:"), gbc);
         
-        panel.add(new JLabel("Нач. Vz (км/с):"));
-        initialVzField = new JTextField("0.0");
-        panel.add(initialVzField);
+        gbc.gridx = 1;
+        minXField = new JTextField("0.0");
+        commonParamsPanel.add(minXField, gbc);
         
-        panel.add(new JLabel("Система координат:"));
-        gskCheckBox = new JCheckBox("ГСК", true);
-        panel.add(gskCheckBox);
+        gbc.gridy = 7;
+        gbc.gridx = 0;
+        commonParamsPanel.add(new JLabel("Max X:"), gbc);
+        
+        gbc.gridx = 1;
+        maxXField = new JTextField("6.28318530717959");
+        commonParamsPanel.add(maxXField, gbc);
+        
+        gbc.gridy = 8;
+        gbc.gridx = 0;
+        commonParamsPanel.add(new JLabel("Шаги:"), gbc);
+        
+        gbc.gridx = 1;
+        stepsField = new JTextField("180");
+        commonParamsPanel.add(stepsField, gbc);
+        
+        // Добавление поля для точек интерполяции
+    gbc.gridy = 9; // Следующая строка после "Шаги"
+    gbc.gridx = 0;
+    commonParamsPanel.add(new JLabel("Точки интерполяции:"), gbc);
+    
+    gbc.gridx = 1;
+    interpolationPointsField = new JTextField("0"); // Значение по умолчанию
+    interpolationPointsField.setToolTipText("Количество точек интерполяции внутри шага (0 = без интерполяции)");
+    commonParamsPanel.add(interpolationPointsField, gbc);
+    
+    // Сдвигаем остальные элементы ниже
+    gbc.gridy = 10;
+    gbc.gridx = 0;
 
-        addInputFields(panel);
-
-        return panel;
     }
 
+    private void initSpacecraftParams() {
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.anchor = GridBagConstraints.WEST;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        
+        // Координаты
+        gbc.gridx = 0; gbc.gridy = 0;
+        spacecraftPanel.add(new JLabel("Начальное положение (км):"), gbc);
+        
+        gbc.gridy = 1;
+        spacecraftPanel.add(new JLabel("X:"), gbc);
+        gbc.gridx = 1;
+        initialXField = new JTextField("-3545479.75");
+        spacecraftPanel.add(initialXField, gbc);
+        
+        gbc.gridx = 0; gbc.gridy = 2;
+        spacecraftPanel.add(new JLabel("Y:"), gbc);
+        gbc.gridx = 1;
+        initialYField = new JTextField("6258868.92");
+        spacecraftPanel.add(initialYField, gbc);
+        
+        gbc.gridx = 0; gbc.gridy = 3;
+        spacecraftPanel.add(new JLabel("Z:"), gbc);
+        gbc.gridx = 1;
+        initialZField = new JTextField("0.00137977308");
+        spacecraftPanel.add(initialZField, gbc);
+        
+        // Скорости
+        gbc.gridx = 0; gbc.gridy = 4;
+        spacecraftPanel.add(new JLabel("Начальная скорость (км/с):"), gbc);
+        
+        gbc.gridy = 5;
+        spacecraftPanel.add(new JLabel("Vx:"), gbc);
+        gbc.gridx = 1;
+        initialVxField = new JTextField("1447.08453");
+        spacecraftPanel.add(initialVxField, gbc);
+        
+        gbc.gridx = 0; gbc.gridy = 6;
+        spacecraftPanel.add(new JLabel("Vy:"), gbc);
+        gbc.gridx = 1;
+        initialVyField = new JTextField("809.852736");
+        spacecraftPanel.add(initialVyField, gbc);
+        
+        gbc.gridx = 0; gbc.gridy = 7;
+        spacecraftPanel.add(new JLabel("Vz:"), gbc);
+        gbc.gridx = 1;
+        initialVzField = new JTextField("7358.78977");
+        spacecraftPanel.add(initialVzField, gbc);
+        
+        // Разделитель
+        gbc.gridx = 0; gbc.gridy = 8; gbc.gridwidth = 2;
+        spacecraftPanel.add(new JSeparator(), gbc);
+        
+        // Дополнительные параметры
+        gbc.gridwidth = 1;
+        gbc.gridy = 9;
+        gbc.gridx = 0;
+        spacecraftPanel.add(new JLabel("Баллистический коэффициент:"), gbc);
+        
+        gbc.gridx = 1;
+        balCoefField = new JTextField("0.0143397737");
+        spacecraftPanel.add(balCoefField, gbc);
+        
+        gbc.gridy = 10;
+        gbc.gridx = 0;
+        spacecraftPanel.add(new JLabel("Система координат:"), gbc);
+        
+        gbc.gridx = 1;
+        gskCheckBox = new JCheckBox("ГСК", true);
+        spacecraftPanel.add(gskCheckBox, gbc);
+        
+        // Добавляем поле для шага интегрирования
+    gbc.gridy = 11;
+    gbc.gridx = 0;
+    spacecraftPanel.add(new JLabel("Шаг интегрирования (сек):"), gbc);
+    gbc.gridx = 1;
+    stepField = new JTextField("10.0"); // Значение по умолчанию
+    spacecraftPanel.add(stepField, gbc);
+    
+    // Добавляем поле для времени прогноза
+    gbc.gridy = 12;
+    gbc.gridx = 0;
+    spacecraftPanel.add(new JLabel("Время прогноза (сек):"), gbc);
+    gbc.gridx = 1;
+    timeField = new JTextField("3600.0"); // 1 час по умолчанию
+    spacecraftPanel.add(timeField, gbc);
+    
+     // Поля для даты и времени
+    gbc.gridy = 13;
+    gbc.gridx = 0;
+    spacecraftPanel.add(new JLabel("Дата (ГГГГ ММ ДД):"), gbc);
+    gbc.gridx = 1;
+    JPanel datePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+    yearField = new JTextField("2023", 4);
+    monthField = new JTextField("5", 2);
+    dayField = new JTextField("25", 2);
+    datePanel.add(yearField);
+    datePanel.add(new JLabel("/"));
+    datePanel.add(monthField);
+    datePanel.add(new JLabel("/"));
+    datePanel.add(dayField);
+    spacecraftPanel.add(datePanel, gbc);
+    
+    gbc.gridy = 14;
+    gbc.gridx = 0;
+    spacecraftPanel.add(new JLabel("Время (чч:мм:сс):"), gbc);
+    gbc.gridx = 1;
+    JPanel timePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+    hourField = new JTextField("13", 2);
+    minuteField = new JTextField("01", 2);
+    secondField = new JTextField("52.568", 2);
+    timePanel.add(hourField);
+    timePanel.add(new JLabel(":"));
+    timePanel.add(minuteField);
+    timePanel.add(new JLabel(":"));
+    timePanel.add(secondField);
+    spacecraftPanel.add(timePanel, gbc);
+    
+    }
     /**
      * Инициализирует список доступных методов.
      */
@@ -294,12 +484,23 @@ public class RungeKuttaGUI extends JFrame {
      */
     private JPanel createResultPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-//        derivativeLabel = new JLabel("Производная в x0: ");
-//        panel.add(derivativeLabel, BorderLayout.NORTH);
-
-        tabbedPane = createTabbedPane();
+        tabbedPane = new JTabbedPane();
+        
+        // Вкладка с графиком
+        graphPanel = new GraphPanel();
+        tabbedPane.addTab("График", new JScrollPane(graphPanel));
+        
+        // Вкладка с результатами
+        resultArea = new JTextArea();
+        resultArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        resultArea.setEditable(false);
+        tabbedPane.addTab("Результаты", new JScrollPane(resultArea));
+        
+        // Вкладка для графиков состояния КА
+        spacecraftStateGraphPanel = new SpacecraftStateGraphPanel();
+        tabbedPane.addTab("Состояние КА", new JScrollPane(spacecraftStateGraphPanel));
+        
         panel.add(tabbedPane, BorderLayout.CENTER);
-
         return panel;
     }
 
@@ -335,23 +536,39 @@ public class RungeKuttaGUI extends JFrame {
      * @return Панель с кнопкой
      */
     private JPanel createButtonPanel() {
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        
         JButton calculateButton = new JButton("Вычислить");
         calculateButton.setFont(new Font("Arial", Font.BOLD, 14));
         calculateButton.addActionListener(this::calculateAction);
-
-        JPanel panel = new JPanel();
+        
+        JButton clearButton = new JButton("Очистить");
+        clearButton.setFont(new Font("Arial", Font.BOLD, 14));
+        clearButton.addActionListener(e -> {
+            resultArea.setText("");
+            graphPanel.clearMaxError();
+            graphPanel.repaint();
+        });
+        
         panel.add(calculateButton);
+        panel.add(clearButton);
         return panel;
     }
+
 
     /**
      * Настраивает обработчики событий для компонентов интерфейса.
      */
-    private void setupEventHandlers() {
+   private void setupEventHandlers() {
         functionComboBox.addActionListener(e -> {
             updateDerivative();
             setDefaultParametersForFunction();
+            
+            // Показывать/скрывать вкладку параметров КА
+            boolean isSpacecraft = functionComboBox.getSelectedItem() == SpacecraftFunction.SPACECRAFT;
+            spacecraftPanel.setVisible(isSpacecraft);
         });
+        
         x0Field.addActionListener(e -> updateDerivative());
     }
 
@@ -359,15 +576,16 @@ public class RungeKuttaGUI extends JFrame {
      * Устанавливает значения параметров по умолчанию в зависимости от выбранной
      * функции.
      */
-    private void setDefaultParametersForFunction() {
-        TestFunction function = (TestFunction) functionComboBox.getSelectedItem();
-        if (function == TestFunction.LOG) {
+   private void setDefaultParametersForFunction() {
+        Object selected = functionComboBox.getSelectedItem();
+        
+        if (selected == StandardTestFunction.LOG) {
             minXField.setText("1");
             maxXField.setText("2");
             stepsField.setText("100");
             x0Field.setText("1");
             y0Field.setText("1");
-        } else if (function == TestFunction.SIN_COS) {
+        } else if (selected == StandardTestFunction.SIN_COS) {
             minXField.setText("0.0");
             maxXField.setText("6.28318530717959");
             stepsField.setText("180");
@@ -377,23 +595,19 @@ public class RungeKuttaGUI extends JFrame {
     /**
      * Обновляет значение производной при изменении функции или начальной точки.
      */
-    private void updateDerivative() {
-        TestFunction function = (TestFunction) functionComboBox.getSelectedItem();
+     private void updateDerivative() {
         try {
-            double x0 = Double.parseDouble(x0Field.getText());
-            double y0 = function.value(x0);
-            y0Field.setText(String.format("%.6f", y0));
-
-            double derivative = function.derivative(x0);
-//            derivativeLabel.setText("Производная в x0: " + String.format("%.6f", derivative));
+            if (functionComboBox.getSelectedItem() instanceof StandardTestFunction) {
+                StandardTestFunction function = (StandardTestFunction) functionComboBox.getSelectedItem();
+                double x0 = Double.parseDouble(x0Field.getText());
+                double y0 = function.value(x0);
+                y0Field.setText(String.format("%.6f", y0));
+            }
         } catch (NumberFormatException e) {
-            derivativeLabel.setText("Производная в x0: ошибка ввода числа");
             LOG.fatal("Производная в x0: ошибка ввода числа: {} ;", e);
         } catch (Exception e) {
-            derivativeLabel.setText("Производная в x0: ошибка вычисления");
-            y0Field.setText("");
             LOG.fatal("Производная в x0: ошибка вычисления: {} ;", e);
-
+            y0Field.setText("");
         }
     }
 
@@ -406,23 +620,67 @@ public class RungeKuttaGUI extends JFrame {
      */
     private void calculateAction(ActionEvent e) {
         try {
-            CalculationParameters params = parseInputParameters();
-            validateParameters(params);
-            
-             if (params.getFunction() == SpacecraftFunction.SPACECRAFT) {
-                calculateSpacecraftMotion(params);
-                return;
+                  CalculationParameters params = parseInputParameters();
+        validateParameters(params);
+        
+        if (params.getFunction() == SpacecraftFunction.SPACECRAFT) {
+            calculateSpacecraftMotion(params);
+            return;
+        }
+
+        double h = (params.getMaxX() - params.getMinX()) / params.getSteps();
+        setupFunctionManagers(params.getFunction());
+        
+        // Создаем метод интегрирования
+        MethodWrapper methodWrapper = params.getMethodWrapper();
+        RungeKuttaMethod method = methodWrapper.createMethod(
+            (t, y, f, parm) -> {
+                try {
+                    f[0] = derivativeFunction.compute(t);
+                } catch (Exception ex) {
+                    LOG.fatal("Ошибка при расчете: '{}';", ex);
+                }
+                return true;
+            }
+        );
+        
+        // Начальные условия
+        double[] y0Arr = { params.getFunction().value(params.getX0()) };
+        
+        int interpolationPoints = Integer.parseInt(interpolationPointsField.getText());
+        
+        List<double[]> solution;
+        if (interpolationPoints > 0) {
+            solution = RungeKuttaSolver.solveWithInterpolation(
+                method, 
+                params.getMinX(), 
+                y0Arr, 
+                h, 
+                params.getSteps(), 
+                interpolationPoints, 
+                null
+            );
+        } else {
+            solution = RungeKuttaSolver.solve(
+                method, 
+                params.getMinX(), 
+                y0Arr, 
+                        h,
+                        params.getSteps(),
+                        null
+                );
             }
 
-            double h = (params.getMaxX() - params.getMinX()) / params.getSteps();
-            setupFunctionManagers(params.getFunction());
-
-            List<double[]> solution = performCalculation(params, h);
-            VisualizationData data = prepareVisualizationData(params, solution, h);
+            VisualizationData data = prepareVisualizationData(
+                    params,
+                    solution,
+                    h,
+                    interpolationPoints
+            );
             updateGraph(data);
             generateReport(params, solution, data, h);
 
-        } catch (NumberFormatException ex) {
+        }    catch (NumberFormatException ex) {
             LOG.fatal("Ошибка вычислений: {} ;", ex);
             showErrorDialog("Ошибка ввода данных: " + ex.getMessage());
         } catch (IllegalArgumentException ex) {
@@ -437,132 +695,217 @@ public class RungeKuttaGUI extends JFrame {
     
     
         // Новый метод для расчета движения КА
-private void calculateSpacecraftMotion(CalculationParameters params) {
-    try {
-        double h = (params.getMaxX() - params.getMinX()) / params.getSteps();
-        
-        // Создаем калькулятор сил
-        SpacecraftForcesCalculator calculator = new SpacecraftForcesCalculator();
-        calculator.setBallisticCoefficient(Double.parseDouble(balCoefField.getText()));
-        calculator.setCurrentDate(1, 1, 2023); // Установка даты
-        
-        // Создаем метод интегрирования
-        MethodWrapper methodWrapper = params.getMethodWrapper();
-        RungeKuttaMethod method = methodWrapper.createMethod(calculator);
-        
-        // Начальные условия
-        double[] y0 = new double[6];
-        y0[0] = Double.parseDouble(initialXField.getText());
-        y0[1] = Double.parseDouble(initialYField.getText());
-        y0[2] = Double.parseDouble(initialZField.getText());
-        y0[3] = Double.parseDouble(initialVxField.getText());
-        y0[4] = Double.parseDouble(initialVyField.getText());
-        y0[5] = Double.parseDouble(initialVzField.getText());
-        
-        // Выполняем расчет
-        List<double[]> solution;
-        if (gskCheckBox.isSelected()) {
-            // Решаем в ГСК
-            solution = RungeKuttaSolver.solve(method, params.getMinX(), y0, h, params.getSteps(), null);
-        } else {
-            // Преобразуем в ИСК -> решаем -> преобразуем обратно в ГСК
-            double[] y0ISK = new double[6];
-            calculator.convertGSKtoISK(params.getMinX(), y0, y0ISK);
-            solution = RungeKuttaSolver.solve(method, params.getMinX(), y0ISK, h, params.getSteps(), null);
+    private void calculateSpacecraftMotion(CalculationParameters params) {
+        try {
             
-            for (int i = 0; i < solution.size(); i++) {
-                double[] stateISK = solution.get(i);
-                double[] stateGSK = new double[6];
-                double t = params.getMinX() + i * h;
-                calculator.convertISKtoGSK(t, stateISK, stateGSK);
-                solution.set(i, stateGSK);
-            }
-        }
+            // Получаем параметры из GUI
+        double step = Double.parseDouble(stepField.getText());
+        double tEnd = Double.parseDouble(timeField.getText());
+        double bc = Double.parseDouble(balCoefField.getText());
         
-        // Подготовка данных для 3D визуализации
-        VisualizationData data = prepareSpacecraftVisualizationData(params, solution, h);
-        updateGraph(data);
-        generateSpacecraftReport(params, solution, data, h);
-        
-    } catch (NumberFormatException ex) {
-        throw new IllegalArgumentException("Ошибка ввода параметров КА");
-    }
-}
+         // Получаем дату и время из GUI
+        int year = Integer.parseInt(yearField.getText());
+        int month = Integer.parseInt(monthField.getText());
+        int day = Integer.parseInt(dayField.getText());
+        int hour = Integer.parseInt(hourField.getText());
+        int minute = Integer.parseInt(minuteField.getText());
+            double second = Double.parseDouble(secondField.getText());
 
-    
-    
-        // Метод для подготовки данных визуализации движения КА
- private VisualizationData prepareSpacecraftVisualizationData(
-        CalculationParameters params, List<double[]> solution, double h) {
-    
+            double h = (params.getMaxX() - params.getMinX()) / params.getSteps();
+
+            SpacecraftMotionSolverV2 solver = new SpacecraftMotionSolverV2(15);
+            solver.setBallisticCoefficient(bc);
+            SpacecraftForcesCalculator calculator = solver.getCalculator();
+            calculator.setDateTime(year, month, day, hour, minute, second);
+
+        // Начальные условия
+        double[] initialState = new double[6];
+        initialState[0] = Double.parseDouble(initialXField.getText());
+        initialState[1] = Double.parseDouble(initialYField.getText());
+        initialState[2] = Double.parseDouble(initialZField.getText());
+        initialState[3] = Double.parseDouble(initialVxField.getText());
+        initialState[4] = Double.parseDouble(initialVyField.getText());
+        initialState[5] = Double.parseDouble(initialVzField.getText());
+            
+            // Создаем калькулятор сил
+//            SpacecraftForcesCalculator calculator = new SpacecraftForcesCalculator();
+            calculator.setBallisticCoefficient(Double.parseDouble(balCoefField.getText()));
+            calculator.setCurrentDate(23, 5, 2023); // Установка даты
+
+            // Создаем метод интегрирования
+            MethodWrapper methodWrapper = params.getMethodWrapper();
+            RungeKuttaMethod method = methodWrapper.createMethod(calculator);
+
+            // Начальные условия
+            double[] y0 = new double[6];
+            y0[0] = Double.parseDouble(initialXField.getText());
+            y0[1] = Double.parseDouble(initialYField.getText());
+            y0[2] = Double.parseDouble(initialZField.getText());
+            y0[3] = Double.parseDouble(initialVxField.getText());
+            y0[4] = Double.parseDouble(initialVyField.getText());
+            y0[5] = Double.parseDouble(initialVzField.getText());
+
+//            // Выполняем расчет
+//            List<double[]> solution;
+//            if (gskCheckBox.isSelected()) {
+//                // Решаем в ГСК
+//                solution = RungeKuttaSolver.solve(method, params.getMinX(), y0, h, params.getSteps(), null);
+//            } else {
+//                // Преобразуем в ИСК -> решаем -> преобразуем обратно в ГСК
+//                double[] y0ISK = new double[6];
+//                calculator.convertGSKtoISK(params.getMinX(), y0, y0ISK);
+//                solution = RungeKuttaSolver.solve(method, params.getMinX(), y0ISK, h, params.getSteps(), null);
+//
+//                // Преобразуем результаты обратно в ГСК для отображения
+//                List<double[]> gskSolution = new ArrayList<>();
+//                for (int i = 0; i < solution.size(); i++) {
+//                    double[] stateISK = solution.get(i);
+//                    double[] stateGSK = new double[6];
+//                    double t = params.getMinX() + i * h;
+//                    calculator.convertISKtoGSK(t, stateISK, stateGSK);
+//                    gskSolution.add(stateGSK);
+//                }
+//                solution = gskSolution;
+//            }
+
+
+     // Выполняем прогноз
+        List<double[]> trajectory;
+        if (gskCheckBox.isSelected()) {
+            trajectory = solver.predictMotionInGSK(initialState, 0.0, tEnd, step);
+        } else {
+            trajectory = solver.predictMotionInISK(initialState, 0.0, tEnd, step);
+        }
+
+        
+        
+            // Подготовка данных для 3D визуализации
+            VisualizationData data = prepareSpacecraftVisualizationData(trajectory, step);
+            updateGraph(data);
+            generateSpacecraftReport(params, trajectory, data, step);
+            
+            
+                        // Подготавливаем данные для графика состояния КА
+            List<Double> timeValues = new ArrayList<>();
+            List<Double> xList = new ArrayList<>();
+            List<Double> yList = new ArrayList<>();
+            List<Double> zList = new ArrayList<>();
+            List<Double> vxList = new ArrayList<>();
+            List<Double> vyList = new ArrayList<>();
+            List<Double> vzList = new ArrayList<>();
+
+            for (int i = 0; i < trajectory.size(); i++) {
+                double t = i * step;
+                double[] state = trajectory.get(i);
+
+                timeValues.add(t);
+                xList.add(state[0]);
+                yList.add(state[1]);
+                zList.add(state[2]);
+                vxList.add(state[3]);
+                vyList.add(state[4]);
+                vzList.add(state[5]);
+            }
+
+            // Передаем данные на график состояния КА
+            spacecraftStateGraphPanel.setData(
+                timeValues, 
+                xList, yList, zList,
+                vxList, vyList, vzList
+            );
+            
+                    graphPanel.setSpacecraftTrajectory(xList, yList, zList);
+
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("Ошибка ввода параметров КА");
+        } catch (Exception ex) {
+            LOG.error("Ошибка при расчете движения КА", ex);
+            showErrorDialog("Ошибка расчета: " + ex.getMessage());
+        }
+    }
+
+    // Метод для подготовки данных визуализации движения КА
+private VisualizationData prepareSpacecraftVisualizationData(
+        List<double[]> solution, 
+        double step) { // используем реальный шаг
+
+    List<Double> timeValues = new ArrayList<>();
     List<Double> xValues = new ArrayList<>();
     List<Double> yValues = new ArrayList<>();
     List<Double> zValues = new ArrayList<>();
-    List<Double> exactValues = new ArrayList<>(); 
-    List<Double> derivativeValues = new ArrayList<>();
-    List<Double> errorValues = new ArrayList<>();
     
-    for (double[] state : solution) {
-        xValues.add(state[0]); // X координата
-        yValues.add(state[1]); // Y координата
-        zValues.add(state[2]); // Z координата
-    }
-    
-    return new VisualizationData(
-        xValues, yValues, exactValues, derivativeValues, errorValues,
-        0, 0 
-    ) {
-        @Override
-        public List<Double> getZValues() {
-            return zValues;
-        }
-    };
-}
-    
-    // Метод для генерации отчета по движению КА
-    private void generateSpacecraftReport(
-            CalculationParameters params, List<double[]> solution, 
-            VisualizationData data, double h) {
+    for (int i = 0; i < solution.size(); i++) {
+        double t = i * step; // правильное время с реальным шагом
+        double[] state = solution.get(i);
         
-        StringBuilder sb = new StringBuilder();
-        appendSpacecraftHeaderInfo(sb, params, h);
-        appendSpacecraftResultsTable(sb, params, solution, data, h);
-        
-        resultArea.setText(sb.toString());
-        tabbedPane.setSelectedIndex(0);
+        timeValues.add(t);
+        xValues.add(state[0]);
+        yValues.add(state[1]);
+        zValues.add(state[2]);
     }
-    
-    private void appendSpacecraftHeaderInfo(StringBuilder sb, CalculationParameters params, double h) {
-        sb.append("Метод: ").append(params.getMethodWrapper().toString()).append("\n");
-        sb.append("Функция: ").append(params.getFunction().toString()).append("\n");
-        sb.append("Бал. коэффициент: ").append(balCoefField.getText()).append("\n");
-        sb.append("Начальные условия:\n");
-        sb.append(String.format("  Положение: [%s, %s, %s] км\n", 
-            initialXField.getText(), initialYField.getText(), initialZField.getText()));
-        sb.append(String.format("  Скорость: [%s, %s, %s] км/с\n", 
-            initialVxField.getText(), initialVyField.getText(), initialVzField.getText()));
-        sb.append("Параметры расчета:\n");
-        sb.append(String.format("  Время: от %.1f до %.1f с, шагов: %d, h = %.6f с\n",
-            params.getMinX(), params.getMaxX(), params.getSteps(), h));
-        sb.append("Система координат: ").append(gskCheckBox.isSelected() ? "ГСК" : "ИСК").append("\n\n");
-    }
-    
-    private void appendSpacecraftResultsTable(
-            StringBuilder sb, CalculationParameters params,
-            List<double[]> solution, VisualizationData data, double h) {
-        
-        sb.append("Результаты:\n");
-        sb.append(String.format("%-10s %-15s %-15s %-15s %-15s %-15s %-15s\n", 
-            "t, с", "X, км", "Y, км", "Z, км", "Vx, км/с", "Vy, км/с", "Vz, км/с"));
 
-        for (int i = 0; i < solution.size(); i++) {
-            double t = params.getMinX() + i * h;
-            double[] state = solution.get(i);
-            
-            sb.append(String.format("%-10.1f %-15.3f %-15.3f %-15.3f %-15.6f %-15.6f %-15.6f\n",
-                t, state[0], state[1], state[2], state[3], state[4], state[5]));
-        }
+    return new VisualizationData(
+            timeValues,
+            xValues,
+            yValues,
+            zValues,
+            new ArrayList<>(), 
+            new ArrayList<>(), 
+            new ArrayList<>(),
+            0, 0,
+            true
+    );
+}
+
+
+    // Метод для генерации отчета по движению КА
+private void generateSpacecraftReport(
+        CalculationParameters params, 
+        List<double[]> solution, 
+        VisualizationData data, 
+        double step) { // реальный шаг
+    
+    StringBuilder sb = new StringBuilder();
+    appendSpacecraftHeaderInfo(sb, params, step); // передаем реальный шаг
+    appendSpacecraftResultsTable(sb, solution, step); // передаем реальный шаг
+    
+    resultArea.setText(sb.toString());
+    tabbedPane.setSelectedIndex(0);
+}
+
+    
+private void appendSpacecraftHeaderInfo(StringBuilder sb, CalculationParameters params, double step) {
+    sb.append("Метод: ").append(params.getMethodWrapper().toString()).append("\n");
+    sb.append("Функция: ").append(params.getFunction().toString()).append("\n");
+    sb.append("Бал. коэффициент: ").append(balCoefField.getText()).append("\n");
+    sb.append("Начальные условия:\n");
+    sb.append(String.format("  Положение: [%s, %s, %s] км\n", 
+        initialXField.getText(), initialYField.getText(), initialZField.getText()));
+    sb.append(String.format("  Скорость: [%s, %s, %s] км/с\n", 
+        initialVxField.getText(), initialVyField.getText(), initialVzField.getText()));
+    sb.append("Параметры расчета:\n");
+    sb.append(String.format("  Время прогноза: %.1f с\n", Double.parseDouble(timeField.getText())));
+    sb.append(String.format("  Шаг интегрирования: %.6f с\n", step)); // используем реальный шаг
+    sb.append("Система координат: ").append(gskCheckBox.isSelected() ? "ГСК" : "ИСК").append("\n\n");
+}
+ // Обновленный метод таблицы результатов
+private void appendSpacecraftResultsTable(
+        StringBuilder sb,
+        List<double[]> solution, 
+        double step) { // реальный шаг
+    
+    sb.append("Результаты:\n");
+    sb.append(String.format("%-10s %-15s %-15s %-15s %-15s %-15s %-15s\n", 
+        "t, с", "X, км", "Y, км", "Z, км", "Vx, км/с", "Vy, км/с", "Vz, км/с"));
+
+    for (int i = 0; i < solution.size(); i++) {
+        double t = i * step; // правильное время с реальным шагом
+        double[] state = solution.get(i);
+        
+        sb.append(String.format("%-10.1f %-15.3f %-15.3f %-15.3f %-15.6f %-15.6f %-15.6f\n",
+            t, state[0], state[1], state[2], state[3], state[4], state[5]));
     }
+}
     
     /**
      * Парсит входные параметры из полей ввода.
@@ -613,24 +956,23 @@ private void calculateSpacecraftMotion(CalculationParameters params) {
      * @param function Тестовая функция
      * @return Строковое выражение производной
      */
-    private String getDerivativeExpression(TestFunction function) {
-        switch (function) {
-            case SIN:
-                return "Math.cos(x)";
-            case COS:
-                return "-Math.sin(x)";
-            case EXP:
-                return "Math.exp(x)";
-            case QUAD:
-                return "2 * x";
-            case SIN_COS:
-                return "Math.cos(x)*Math.cos(10*x) - 10*Math.sin(x)*Math.sin(10*x)";
-            case LOG:
-                return "1.0 / x";
-            default:
-                throw new IllegalArgumentException("Неизвестная функция");
-        }
+private String getDerivativeExpression(TestFunction function) {
+    if (function == StandardTestFunction.SIN) {
+        return "Math.cos(x)";
+    } else if (function == StandardTestFunction.COS) {
+        return "-Math.sin(x)";
+    } else if (function == StandardTestFunction.EXP) {
+        return "Math.exp(x)";
+    } else if (function == StandardTestFunction.QUAD) {
+        return "2 * x";
+    } else if (function == StandardTestFunction.SIN_COS) {
+        return "Math.cos(x)*Math.cos(10*x) - 10*Math.sin(x)*Math.sin(10*x)";
+    } else if (function == StandardTestFunction.LOG) {
+        return "1.0 / x";
+    } else {
+        throw new IllegalArgumentException("Неизвестная функция");
     }
+}
 
     /**
      * Выполняет расчет методом Рунге-Кутты.
@@ -670,7 +1012,8 @@ private void calculateSpacecraftMotion(CalculationParameters params) {
     private VisualizationData prepareVisualizationData(
             CalculationParameters params,
             List<double[]> solution,
-            double h
+            double h,
+            int interpolationPoints
     ) {
         List<Double> xValues = new ArrayList<>();
         List<Double> yValues = new ArrayList<>();
@@ -678,38 +1021,54 @@ private void calculateSpacecraftMotion(CalculationParameters params) {
         List<Double> derivativeValues = new ArrayList<>();
         List<Double> errorValues = new ArrayList<>();
 
+        double minX = params.getMinX();
+        int totalPoints = solution.size();
+        double stepH = h / (interpolationPoints + 1);
+
         double maxError = 0;
         double sumError = 0;
+
         double currentX = params.getMinX();
 
-        for (int i = 0; i < solution.size(); i++) {
-            xValues.add(currentX);
-            double numY = solution.get(i)[0];
-            yValues.add(numY);
-
-            double exactY = params.getFunction().value(currentX);
-            exactValues.add(exactY);
-
-            double error = Math.abs(numY - exactY);
-            errorValues.add(error);
-
-            sumError += error;
-            if (error > maxError) {
-                maxError = error;
-            }
-
-            if (derivativeCheckBox.isSelected()) {
-                derivativeValues.add(params.getFunction().numericalDerivative(currentX));
-            }
-
-            currentX += (i < solution.size() - 1) ? h : 0;
+    for (int i = 0; i < totalPoints; i++) {
+        // Рассчитываем текущее время
+        double x = minX + i * stepH;
+        xValues.add(x);
+        
+        double numY = solution.get(i)[0];
+        yValues.add(numY);
+        
+        double exactY = params.getFunction().value(x);
+        exactValues.add(exactY);
+        
+        double error = Math.abs(numY - exactY);
+        errorValues.add(error);
+        
+        sumError += error;
+        if (error > maxError) {
+            maxError = error;
         }
-
-        return new VisualizationData(
-                xValues, yValues, exactValues, derivativeValues, errorValues,
-                maxError, sumError / solution.size()
-        );
+        
+        if (derivativeCheckBox.isSelected()) {
+            derivativeValues.add(params.getFunction().numericalDerivative(x));
+        }
     }
+    
+    double avgError = solution.isEmpty() ? 0 : sumError / solution.size();
+    
+    return new VisualizationData(
+            xValues,
+            xValues,
+            yValues,
+            new ArrayList<>(), // Empty zValues for non-spacecraft
+            exactValues,
+            derivativeValues,
+            errorValues,
+            maxError,
+            avgError,
+            false
+    );
+}
 
     /**
      * Обновляет график на основе подготовленных данных.
@@ -723,7 +1082,34 @@ private void calculateSpacecraftMotion(CalculationParameters params) {
         graphPanel.setErrorData(data.getErrorValues());
         graphPanel.setShowError(errorCheckBox.isSelected());
         graphPanel.setMaxError(data.getMaxError());
+
+    if (data.isSpacecraftData()) {
+        // Для данных КА используем отдельные списки
+        graphPanel.setSpacecraftTrajectory(
+            data.getXValues(), 
+            data.getYValues(), 
+            data.getZValues()
+        );
+    } else {
+        // Для обычных функций
+        graphPanel.setData(
+            data.getXValues(), 
+            data.getYValues(), 
+            data.getExactValues()
+        );
+    }
+    
+        // Всегда сбрасываем производные и ошибки
+    graphPanel.setDerivativeData(new ArrayList<>());
+    graphPanel.setErrorData(new ArrayList<>());
+    
+    graphPanel.setShowDerivative(false);
+    graphPanel.setShowError(false);
+    graphPanel.clearMaxError();
+    
         graphPanel.repaint();
+
+        
     }
 
     /**
@@ -822,6 +1208,18 @@ private void calculateSpacecraftMotion(CalculationParameters params) {
             gui.setLocationRelativeTo(null);
             gui.setVisible(true);
         });
+            // Тест преобразования координат
+    SpacecraftForcesCalculator calc = new SpacecraftForcesCalculator();
+    double[] gskState = {-3545479.75, 6258868.92, 0.00137977308, 1447.08453, 809.852736, 7358.78977};
+    double[] iskState = new double[6];
+    calc.convertGSKtoISK(0, gskState, iskState);
+    System.out.println("ИСК: " + Arrays.toString(iskState));
+    
+    // Тест правых частей
+    double[] y = {-3545479.75, 6258868.92, 0.00137977308, 1447.08453, 809.852736, 7358.78977};
+    double[] f = new double[6];
+    calc.compute(0, y, f, null);
+    System.out.println("Правые части: " + Arrays.toString(f));
     }
 
     /**
@@ -927,6 +1325,8 @@ private void calculateSpacecraftMotion(CalculationParameters params) {
      */
     private static class VisualizationData {
 
+            private final List<Double> timeValues; // Новое поле для времени
+            
         /**
          * Значения аргумента по оси X.
          */
@@ -936,6 +1336,9 @@ private void calculateSpacecraftMotion(CalculationParameters params) {
          * Численные значения решения (Y).
          */
         private final List<Double> yValues;
+        
+        
+         private final List<Double> zValues;
 
         /**
          * Точные значения функции.
@@ -962,7 +1365,8 @@ private void calculateSpacecraftMotion(CalculationParameters params) {
          */
         private final double avgError;
         
-         private final List<Double> zValues;
+         
+             private boolean isSpacecraftData;
 
         /**
          * Создаёт объект с данными для визуализации.
@@ -975,18 +1379,22 @@ private void calculateSpacecraftMotion(CalculationParameters params) {
          * @param maxError Максимальная ошибка
          * @param avgError Средняя ошибка
          */
-        public VisualizationData(List<Double> xValues, List<Double> yValues, 
+    public VisualizationData( List<Double> timeValues, List<Double> xValues, List<Double> yValues, 
+                           List<Double> zValues,
                            List<Double> exactValues, List<Double> derivativeValues,
-                           List<Double> errorValues, double maxError, double avgError) {
-            this.xValues = xValues;
-            this.yValues = yValues;
-            this.exactValues = exactValues;
-            this.derivativeValues = derivativeValues;
-            this.errorValues = errorValues;
-            this.maxError = maxError;
-            this.avgError = avgError;
-            this.zValues = new ArrayList<>();
-        }
+                           List<Double> errorValues, double maxError, double avgError,
+                           boolean isSpacecraft) {
+        this.timeValues = timeValues;
+    this.xValues = xValues;
+    this.yValues = yValues;
+    this.zValues = zValues;
+    this.exactValues = exactValues;
+    this.derivativeValues = derivativeValues;
+    this.errorValues = errorValues;
+    this.maxError = maxError;
+    this.avgError = avgError;
+    this.isSpacecraftData = isSpacecraft;
+}
 
         /**
          * Возвращает значения аргумента X.
@@ -1039,5 +1447,12 @@ private void calculateSpacecraftMotion(CalculationParameters params) {
         public double getAvgError() {
             return avgError;
         }
+        
+            public List<Double> getTimeValues() {
+        return timeValues;
+    }
+    public boolean isSpacecraftData() {
+        return isSpacecraftData;
+    }
     }
 }

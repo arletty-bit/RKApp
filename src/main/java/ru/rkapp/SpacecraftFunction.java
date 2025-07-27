@@ -1,23 +1,20 @@
 package ru.rkapp;
 
-/**
- * Тестовая функция для расчета движения космического аппарата
- */
 public enum SpacecraftFunction implements TestFunction {
     SPACECRAFT("Движение КА") {
         @Override
         public double value(double x) {
-            return 0; // Не используется для этой функции
+            return 0;
         }
 
         @Override
         public double derivative(double x) {
-            return 0; // Не используется для этой функции
+            return 0;
         }
 
         @Override
         public double numericalDerivative(double x) {
-            return 0; // Не используется для этой функции
+            return 0;
         }
 
         @Override

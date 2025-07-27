@@ -27,4 +27,15 @@ public abstract class RungeKuttaMethod {
      * @return true если шаг выполнен успешно, false при ошибке
      */    
     public abstract boolean step(double t, double[] Y, double h, double[] YN, Object parm);
+
+    /**
+     * Интерполирует решение в заданный момент времени (опциональная функция)
+     * 
+     * @param t     Время для интерполяции
+     * @param y     Массив для записи результата
+     * @return      true если интерполяция поддерживается и выполнена, иначе false
+     */
+    public boolean interpolate(double t, double[] y) {
+        return false; // По умолчанию не поддерживается
+    }
 }

@@ -63,6 +63,42 @@ public class RungeKuttaSolver {
         return results;
     }
     
+    
+     public static List<double[]> solveWithInterpolation(RungeKuttaMethod method,
+            double t0, double[] y0, double h, int steps, 
+            int interpolationPoints, Object parm) {
+        
+        List<double[]> results = new ArrayList<>();
+        results.add(y0.clone());
+        
+        double[] currentY = y0.clone();
+        double t = t0;
+        
+        for (int i = 0; i < steps; i++) {
+            double[] nextY = new double[y0.length];
+            
+            // Шаг интегрирования
+            if (!method.step(t, currentY, h, nextY, parm)) {
+                throw new RuntimeException("Ошибка на шаге " + i);
+            }
+            
+            // Интерполяция внутри шага
+            for (int j = 1; j <= interpolationPoints; j++) {
+                double interpTime = t + j * h / (interpolationPoints + 1);
+                double[] interpY = new double[y0.length];
+                
+                if (method.interpolate(interpTime, interpY)) {
+                    results.add(interpY.clone());
+                }
+            }
+            
+            results.add(nextY.clone());
+            currentY = nextY;
+            t += h;
+        }
+        return results;
+    }
+    
 //    
 //    private static List<double[]> solveAdaptiveADP853(AdaptiveDormandPrince853Integrator method,
 //                                          double t0, double[] y0,

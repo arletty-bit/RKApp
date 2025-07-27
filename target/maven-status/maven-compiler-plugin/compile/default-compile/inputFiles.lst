@@ -5,12 +5,14 @@
 /home/alozhkina/Документы/RKApp/src/main/java/ru/rkapp/Differentiation.java
 /home/alozhkina/Документы/RKApp/src/main/java/ru/rkapp/FunctionManager.java
 /home/alozhkina/Документы/RKApp/src/main/java/ru/rkapp/GraphPanel.java
+/home/alozhkina/Документы/RKApp/src/main/java/ru/rkapp/InterpolatableMethod.java
 /home/alozhkina/Документы/RKApp/src/main/java/ru/rkapp/MethodWrapper.java
 /home/alozhkina/Документы/RKApp/src/main/java/ru/rkapp/RightCalculator.java
 /home/alozhkina/Документы/RKApp/src/main/java/ru/rkapp/RungeKuttaGUI.java
 /home/alozhkina/Документы/RKApp/src/main/java/ru/rkapp/RungeKuttaMethod.java
 /home/alozhkina/Документы/RKApp/src/main/java/ru/rkapp/RungeKuttaSolver.java
 /home/alozhkina/Документы/RKApp/src/main/java/ru/rkapp/SpacecraftFunction.java
+/home/alozhkina/Документы/RKApp/src/main/java/ru/rkapp/SpacecraftStateGraphPanel.java
 /home/alozhkina/Документы/RKApp/src/main/java/ru/rkapp/StandardTestFunction.java
 /home/alozhkina/Документы/RKApp/src/main/java/ru/rkapp/TestFunction.java
 /home/alozhkina/Документы/RKApp/src/main/java/ru/rkapp/methods/AdaptiveDormandPrince853Integrator.java

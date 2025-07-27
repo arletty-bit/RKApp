@@ -122,6 +122,10 @@ public class GraphPanel extends JPanel {
      */
     private double maxError = Double.NaN;
     
+        private List<Double> trajectoryX = new ArrayList<>();
+    private List<Double> trajectoryY = new ArrayList<>();
+    private List<Double> trajectoryZ = new ArrayList<>();
+    
 private List<Double> yValues;
 private List<Double> zValues;
     /**
@@ -131,17 +135,28 @@ private List<Double> zValues;
      * @param yNumerical значения численного решения
      * @param yExact значения точного решения
      */
-    public void setData(List<Double> xValues, List<Double> yNumerical, List<Double> yExact) {
-        this.xValues = xValues;
-        this.yNumerical = yNumerical;
-        this.yExact = yExact;
-        repaint();
-    }
+public void setData(List<Double> xValues, List<Double> yNumerical, List<Double> yExact) {
+    resetSpacecraftData();
+    this.xValues = xValues;
+    this.yNumerical = yNumerical;
+    this.yExact = yExact;
+    repaint();
+}
     
         public void setZValues(List<Double> zValues) {
         this.zValues = zValues;
     }
     
+        
+        
+            // Метод для установки траектории КА
+public void setSpacecraftTrajectory(List<Double> x, List<Double> y, List<Double> z) {
+    resetGraphData();
+    this.trajectoryX = x;
+    this.trajectoryY = y;
+    this.trajectoryZ = z;
+    repaint();
+}
 
         public GraphPanel() {
     xValues = new ArrayList<>();
@@ -208,20 +223,26 @@ private List<Double> zValues;
      * @param g графический контекст для рисования
      */
     @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        Graphics2D g2 = (Graphics2D) g;
-        enableAntiAliasing(g2);
-        clearBackground(g2);
-        
-        if (!hasValidData()) {
-            return;
-        }
+ protected void paintComponent(Graphics g) {
+    super.paintComponent(g);
+    Graphics2D g2 = (Graphics2D) g;
+    enableAntiAliasing(g2);
+    clearBackground(g2);
+    
+    if (!hasValidData()) {
+        return;
+    }
 
-        int width = getWidth();
-        int height = getHeight();
-        
-        // Вычисление границ данных и масштабов
+    int width = getWidth();
+    int height = getHeight();
+    
+    // Отрисовка траектории КА (если есть данные)
+        if (!trajectoryX.isEmpty()) {
+            draw3DTrajectory(g);
+        }
+    
+    // Отрисовка обычных графиков (если есть данные)
+    if (!xValues.isEmpty()) {
         double[] bounds = calculateDataBounds();
         double minX = bounds[0];
         double maxX = bounds[1];
@@ -230,72 +251,79 @@ private List<Double> zValues;
         double xScale = (width - 2 * PAD) / (maxX - minX);
         double yScale = (height - 2 * PAD) / (maxY - minY);
 
-        // Отрисовка графиков
-        drawDerivative(g2, minX, minY, xScale, yScale, width, height);
-        drawError(g2, minX, minY, xScale, yScale, width, height);
+        // Отрисовка в правильной последовательности
         drawGrid(g2, minX, maxX, minY, maxY, width, height);
         drawAxes(g2, minX, maxX, minY, maxY, width, height);
         drawTitle(g2, width);
+        drawDerivative(g2, minX, minY, xScale, yScale, width, height);
+        drawError(g2, minX, minY, xScale, yScale, width, height);
         drawNumericalSolution(g2, minX, minY, xScale, yScale, width, height);
         drawExactSolution(g2, minX, minY, xScale, yScale, width, height);
         drawLegend(g2, width, height);
         drawMaxError(g2, width, height);
-        
-                if (zValues != null && !zValues.isEmpty()) {
-            draw3DProjection(g);
-        }
     }
+}
+private void drawExactSolution(Graphics2D g2, double minX, double minY, 
+                             double xScale, double yScale, 
+                             int width, int height) {
+    if (yExact == null || yExact.isEmpty()) return;
+    
+    g2.setColor(EXACT_COLOR);
+    g2.setStroke(new BasicStroke(2, BasicStroke.CAP_BUTT, 
+              BasicStroke.JOIN_BEVEL, 0, new float[]{5, 5}, 0));
+    drawPolyline(g2, xValues, yExact, minX, minY, xScale, yScale, width, height);
+}
 
-        private void draw3DProjection(Graphics g) {
+    private void draw3DTrajectory(Graphics g) {
         int width = getWidth();
         int height = getHeight();
-        int margin = 50;
+        int margin = 80;
+                
+    // Используем правильные поля для траектории
+  // Рассчитываем границы данных
+        double minX = Collections.min(trajectoryX);
+        double maxX = Collections.max(trajectoryX);
+        double minY = Collections.min(trajectoryY);
+        double maxY = Collections.max(trajectoryY);
+        double minZ = Collections.min(trajectoryZ);
+        double maxZ = Collections.max(trajectoryZ);
         
-        // Находим диапазоны значений
-        double minX = Collections.min(xValues);
-        double maxX = Collections.max(xValues);
-        double minY = Collections.min(yValues);
-        double maxY = Collections.max(yValues);
-        double minZ = Collections.min(zValues);
-        double maxZ = Collections.max(zValues);
+        // Масштабирование
+        double scaleX = (width - 2 * margin) / (maxX - minX);
+        double scaleY = (height - 2 * margin) / (maxY - minY);
+        double scaleZ = Math.min(scaleX, scaleY) * 0.5;
         
-        // Масштабирующие коэффициенты
-        double xScale = (width - 2 * margin) / (maxX - minX);
-        double yScale = (height - 2 * margin) / (maxY - minY);
-        double zScale = (height - 2 * margin) / (maxZ - minZ) * 0.5;
-        
-        // Рисуем оси
+        // Оси
         g.setColor(Color.BLACK);
-        g.drawLine(margin, height - margin, width - margin, height - margin); // X ось
-        g.drawLine(margin, height - margin, margin, margin); // Y ось
-        g.drawLine(margin, height - margin, margin + 50, height - margin - 50); // Z ось
+        g.drawLine(margin, height - margin, width - margin, height - margin); // X
+        g.drawLine(margin, height - margin, margin, margin); // Y
+        g.drawLine(margin, height - margin, margin + 50, height - margin - 50); // Z
         
-        // Рисуем подписи осей
+        // Подписи осей
         g.drawString("X", width - margin + 5, height - margin);
-        g.drawString("Y", margin, margin - 5);
+        g.drawString("Y", margin - 20, margin - 5);
         g.drawString("Z", margin + 55, height - margin - 55);
         
-        // Рисуем траекторию
+        // Траектория
         g.setColor(Color.BLUE);
-        for (int i = 1; i < xValues.size(); i++) {
-            int x1 = margin + (int)((xValues.get(i-1) - minX) * xScale);
-            int y1 = height - margin - (int)((yValues.get(i-1) - minY) * yScale);
-            int z1 = (int)((zValues.get(i-1) - minZ) * zScale);
+        for (int i = 1; i < trajectoryX.size(); i++) {
+            int x1 = margin + (int) ((trajectoryX.get(i-1) - minX) * scaleX);
+            int y1 = height - margin - (int) ((trajectoryY.get(i-1) - minY) * scaleY);
+            int z1 = (int) ((trajectoryZ.get(i-1) - minZ) * scaleZ);
             
-            int x2 = margin + (int)((xValues.get(i) - minX) * xScale);
-            int y2 = height - margin - (int)((yValues.get(i) - minY) * yScale);
-            int z2 = (int)((zValues.get(i) - minZ) * zScale);
+            int x2 = margin + (int) ((trajectoryX.get(i) - minX) * scaleX);
+            int y2 = height - margin - (int) ((trajectoryY.get(i) - minY) * scaleY);
+            int z2 = (int) ((trajectoryZ.get(i) - minZ) * scaleZ);
             
-            // Простая изометрическая проекция
+            // Изометрическая проекция
             int px1 = x1 - z1;
             int py1 = y1 - z1/2;
             int px2 = x2 - z2;
             int py2 = y2 - z2/2;
             
             g.drawLine(px1, py1, px2, py2);
-            draw3DTrajectory(g);
-        }
     }
+   }
     /**
      * Включает сглаживание для графики.
      *
@@ -320,11 +348,33 @@ private List<Double> zValues;
      *
      * @return true - данные доступны, false - данные отсутствуют
      */
-    private boolean hasValidData() {
-        return xValues != null && !xValues.isEmpty()
-                && yNumerical != null && !yNumerical.isEmpty()
-                && yExact != null && !yExact.isEmpty();
-    }
+private boolean hasValidData() {
+    // Проверяем наличие данных трассы КА
+    boolean hasSpacecraftData = !trajectoryX.isEmpty() && 
+                               !trajectoryY.isEmpty() && 
+                               !trajectoryZ.isEmpty();
+    
+    // Проверяем наличие обычных графических данных
+    boolean hasGraphData = xValues != null && !xValues.isEmpty() &&
+                          yNumerical != null && !yNumerical.isEmpty() &&
+                          yExact != null && !yExact.isEmpty();
+    
+    return hasSpacecraftData || hasGraphData;
+}
+//  методы сброса данных 
+public void resetSpacecraftData() {
+    trajectoryX = new ArrayList<>();
+    trajectoryY = new ArrayList<>();
+    trajectoryZ = new ArrayList<>();
+}
+//  методы сброса данных 
+public void resetGraphData() {
+    xValues = new ArrayList<>();
+    yNumerical = new ArrayList<>();
+    yExact = new ArrayList<>();
+    yDerivative = new ArrayList<>();
+    errorValues = new ArrayList<>();
+}
 
     /**
      * Вычисляет границы данных с учетом всех видимых графиков.
@@ -402,6 +452,8 @@ private List<Double> zValues;
     private void drawDerivative(Graphics2D g2, double minX, double minY, 
                                double xScale, double yScale, 
                                int width, int height) {
+            if (yExact == null || yExact.isEmpty()) return;
+
         if (showDerivative && yDerivative != null && !yDerivative.isEmpty()) {
             g2.setColor(new Color(0, 150, 0));
             g2.setStroke(new BasicStroke(2, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL,
@@ -424,6 +476,8 @@ private List<Double> zValues;
     private void drawError(Graphics2D g2, double minX, double minY, 
                           double xScale, double yScale, 
                           int width, int height) {
+            if (yExact == null || yExact.isEmpty()) return;
+
         if (showError && errorValues != null && !errorValues.isEmpty()) {
             g2.setColor(ERROR_COLOR);
             g2.setStroke(new BasicStroke(2, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL,
@@ -542,30 +596,32 @@ private List<Double> zValues;
     private void drawNumericalSolution(Graphics2D g2, double minX, double minY, 
                                       double xScale, double yScale, 
                                       int width, int height) {
+            if (yExact == null || yExact.isEmpty()) return;
+
         g2.setColor(NUMERICAL_COLOR);
         g2.setStroke(new BasicStroke(3));
         drawPolyline(g2, xValues, yNumerical, minX, minY, xScale, yScale, width, height);
     }
 
-    /**
-     * Отрисовывает график точного решения.
-     *
-     * @param g2 графический контекст
-     * @param minX минимальное значение X
-     * @param minY минимальное значение Y
-     * @param xScale масштаб по оси X
-     * @param yScale масштаб по оси Y
-     * @param width ширина панели
-     * @param height высота панели
-     */
-    private void drawExactSolution(Graphics2D g2, double minX, double minY, 
-                                  double xScale, double yScale, 
-                                  int width, int height) {
-        g2.setColor(EXACT_COLOR);
-        g2.setStroke(new BasicStroke(2, BasicStroke.CAP_BUTT, 
-                    BasicStroke.JOIN_BEVEL, 0, new float[]{5, 5}, 0));
-        drawPolyline(g2, xValues, yExact, minX, minY, xScale, yScale, width, height);
-    }
+//////    /**
+//////     * Отрисовывает график точного решения.
+//////     *
+//////     * @param g2 графический контекст
+//////     * @param minX минимальное значение X
+//////     * @param minY минимальное значение Y
+//////     * @param xScale масштаб по оси X
+//////     * @param yScale масштаб по оси Y
+//////     * @param width ширина панели
+//////     * @param height высота панели
+//////     */
+//////    private void drawExactSolution(Graphics2D g2, double minX, double minY, 
+//////                                  double xScale, double yScale, 
+//////                                  int width, int height) {
+//////        g2.setColor(EXACT_COLOR);
+//////        g2.setStroke(new BasicStroke(2, BasicStroke.CAP_BUTT, 
+//////                    BasicStroke.JOIN_BEVEL, 0, new float[]{5, 5}, 0));
+//////        drawPolyline(g2, xValues, yExact, minX, minY, xScale, yScale, width, height);
+//////    }
 
     /**
      * Отрисовывает легенду графика.
@@ -693,49 +749,49 @@ private List<Double> zValues;
         g2.drawPolyline(xPoints, yPoints, xPoints.length);
     }
     
-    private void draw3DTrajectory(Graphics g) {
-    if (zValues == null || zValues.isEmpty()) return;
-    
-    int width = getWidth();
-    int height = getHeight();
-    int margin = 80;
-    
-    // Масштабирование
-    double minX = Collections.min(xValues);
-    double maxX = Collections.max(xValues);
-    double minY = Collections.min(yValues);
-    double maxY = Collections.max(yValues);
-    double minZ = Collections.min(zValues);
-    double maxZ = Collections.max(zValues);
-    
-    double scaleX = (width - 2 * margin) / (maxX - minX);
-    double scaleY = (height - 2 * margin) / (maxY - minY);
-    double scaleZ = Math.min(scaleX, scaleY) * 0.5; // Масштаб для глубины
-    
-    // Оси
-    g.setColor(Color.BLACK);
-    g.drawLine(margin, height - margin, width - margin, height - margin); // X
-    g.drawLine(margin, height - margin, margin, margin); // Y
-    g.drawLine(margin, height - margin, margin + 50, height - margin - 50); // Z
-    
-    // Траектория
-    g.setColor(Color.BLUE);
-    for (int i = 1; i < xValues.size(); i++) {
-        int x1 = margin + (int) ((xValues.get(i-1) - minX) * scaleX);
-        int y1 = height - margin - (int) ((yValues.get(i-1) - minY) * scaleY);
-        int z1 = (int) ((zValues.get(i-1) - minZ) * scaleZ);
-        
-        int x2 = margin + (int) ((xValues.get(i) - minX) * scaleX);
-        int y2 = height - margin - (int) ((yValues.get(i) - minY) * scaleY);
-        int z2 = (int) ((zValues.get(i) - minZ) * scaleZ);
-        
-        // Изометрическая проекция
-        int px1 = x1 - z1;
-        int py1 = y1 - z1/2;
-        int px2 = x2 - z2;
-        int py2 = y2 - z2/2;
-        
-        g.drawLine(px1, py1, px2, py2);
-    }
-}
+//    private void draw3DTrajectory(Graphics g) {
+//    if (zValues == null || zValues.isEmpty()) return;
+//    
+//    int width = getWidth();
+//    int height = getHeight();
+//    int margin = 80;
+//    
+//    // Масштабирование
+//    double minX = Collections.min(xValues);
+//    double maxX = Collections.max(xValues);
+//    double minY = Collections.min(yValues);
+//    double maxY = Collections.max(yValues);
+//    double minZ = Collections.min(zValues);
+//    double maxZ = Collections.max(zValues);
+//    
+//    double scaleX = (width - 2 * margin) / (maxX - minX);
+//    double scaleY = (height - 2 * margin) / (maxY - minY);
+//    double scaleZ = Math.min(scaleX, scaleY) * 0.5; // Масштаб для глубины
+//    
+//    // Оси
+//    g.setColor(Color.BLACK);
+//    g.drawLine(margin, height - margin, width - margin, height - margin); // X
+//    g.drawLine(margin, height - margin, margin, margin); // Y
+//    g.drawLine(margin, height - margin, margin + 50, height - margin - 50); // Z
+//    
+//    // Траектория
+//    g.setColor(Color.BLUE);
+//    for (int i = 1; i < xValues.size(); i++) {
+//        int x1 = margin + (int) ((xValues.get(i-1) - minX) * scaleX);
+//        int y1 = height - margin - (int) ((yValues.get(i-1) - minY) * scaleY);
+//        int z1 = (int) ((zValues.get(i-1) - minZ) * scaleZ);
+//        
+//        int x2 = margin + (int) ((xValues.get(i) - minX) * scaleX);
+//        int y2 = height - margin - (int) ((yValues.get(i) - minY) * scaleY);
+//        int z2 = (int) ((zValues.get(i) - minZ) * scaleZ);
+//        
+//        // Изометрическая проекция
+//        int px1 = x1 - z1;
+//        int py1 = y1 - z1/2;
+//        int px2 = x2 - z2;
+//        int py2 = y2 - z2/2;
+//        
+//        g.drawLine(px1, py1, px2, py2);
+//    }
+//}
 }

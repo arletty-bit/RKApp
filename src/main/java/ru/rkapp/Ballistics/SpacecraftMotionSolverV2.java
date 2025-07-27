@@ -34,28 +34,28 @@ public class SpacecraftMotionSolverV2 {
     /**
      * Выполняет прогноз движения в ГСК.
      */
-    public List<double[]> predictMotionInGSK(double[] initialStateGSK, double t0, double tEnd, double step) {
-        List<double[]> results = new ArrayList<>();
-        results.add(initialStateGSK.clone());
+public List<double[]> predictMotionInGSK(double[] initialStateGSK, double t0, double tEnd, double step) {
+    List<double[]> results = new ArrayList<>();
+    results.add(initialStateGSK.clone());
+    
+    double[] currentState = initialStateGSK.clone();
+    double t = t0;
+    
+    while (t < tEnd) {
+        double[] nextState = new double[6];
+        double currentStep = Math.min(step, tEnd - t);
         
-        double[] currentState = initialStateGSK.clone();
-        double t = t0;
-        
-        while (t < tEnd) {
-            double[] nextState = new double[6];
-            double currentStep = Math.min(step, tEnd - t);
-            
-            if (!integrator.step(t, currentState, currentStep, nextState, null)) {
-                throw new RuntimeException("Ошибка интегрирования на шаге t=" + t);
-            }
-            
-            results.add(nextState);
-            currentState = nextState;
-            t += currentStep;
+        if (!integrator.step(t, currentState, currentStep, nextState, null)) {
+            throw new RuntimeException("Ошибка интегрирования на шаге t=" + t);
         }
         
-        return results;
+        results.add(nextState);
+        currentState = nextState;
+        t += currentStep;
     }
+    
+    return results;
+}
     
     /**
      * Выполняет прогноз движения в ИСК.
@@ -79,29 +79,33 @@ public class SpacecraftMotionSolverV2 {
         return trajectoryISK;
     }
     
-    /**
-     * Пример использования.
-     */
-    public static void main(String[] args) {
-        // Начальные условия в ГСК (пример)
-        double[] initialStateGSK = {
-            7000.0, 0.0, 0.0,  // Положение, км
-            0.0, 7.5, 0.0       // Скорость, км/с
-        };
-        
-        SpacecraftMotionSolverV2 solver = new SpacecraftMotionSolverV2(15); // Порядок метода 15
-        solver.setBallisticCoefficient(0.0413);
-        solver.setCurrentDate(1, 1, 2023); // Устанавливаем текущую дату
-        
-        // Прогноз на 1 час с шагом 10 секунд
-        List<double[]> trajectory = solver.predictMotionInGSK(initialStateGSK, 0.0, 3600.0, 10.0);
-        
-        // Вывод результатов
-        System.out.println("Время, X, Y, Z, Vx, Vy, Vz");
-        for (int i = 0; i < trajectory.size(); i++) {
-            double[] state = trajectory.get(i);
-            System.out.printf("%.1f, %.3f, %.3f, %.3f, %.6f, %.6f, %.6f%n",
-                i * 10.0, state[0], state[1], state[2], state[3], state[4], state[5]);
-        }
+//    /**
+//     * Пример использования.
+//     */
+//    public static void main(String[] args) {
+//        // Начальные условия в ГСК (пример)
+//        double[] initialStateGSK = {
+//            7000.0, 0.0, 0.0,  // Положение, км
+//            0.0, 7.5, 0.0       // Скорость, км/с
+//        };
+//        
+//        SpacecraftMotionSolverV2 solver = new SpacecraftMotionSolverV2(15); // Порядок метода 15
+//        solver.setBallisticCoefficient(0.0413);
+//        solver.setCurrentDate(1, 1, 2023); // Устанавливаем текущую дату
+//        
+//        // Прогноз на 1 час с шагом 10 секунд
+//        List<double[]> trajectory = solver.predictMotionInGSK(initialStateGSK, 0.0, 3600.0, 10.0);
+//        
+//        // Вывод результатов
+//        System.out.println("Время, X, Y, Z, Vx, Vy, Vz");
+//        for (int i = 0; i < trajectory.size(); i++) {
+//            double[] state = trajectory.get(i);
+//            System.out.printf("%.1f, %.3f, %.3f, %.3f, %.6f, %.6f, %.6f%n",
+//                i * 10.0, state[0], state[1], state[2], state[3], state[4], state[5]);
+//        }
+//    }
+    
+        public SpacecraftForcesCalculator getCalculator() {
+        return calculator;
     }
 }
