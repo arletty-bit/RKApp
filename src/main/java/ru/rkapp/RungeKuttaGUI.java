@@ -36,80 +36,85 @@ public class RungeKuttaGUI extends JFrame {
 
 
     /**
-     * Выпадающий список для выбора тестовой функции (SIN, COS, EXP и др.)
+     * Выпадающий список для выбора тестовой функции (SIN, COS, EXP и др.).
      */
     private JComboBox<TestFunction> functionComboBox;
 
     /**
      * Выпадающий список для выбора численного метода (Эйлера, Рунге-Кутты 4-го
-     * порядка и др.)
+     * порядка и др.).
      */
     private JComboBox<MethodWrapper> methodComboBox;
 
     /**
-     * Поле ввода начального значения независимой переменной
+     * Поле ввода начального значения независимой переменной.
      */
     private JTextField x0Field;
 
     /**
-     * Поле ввода начального значения функции
+     * Поле ввода начального значения функции.
      */
     private JTextField y0Field;
 
     /**
-     * Поле ввода нижней границы интервала интегрирования
+     * Поле ввода нижней границы интервала интегрирования.
      */
     private JTextField minXField;
 
     /**
-     * Поле ввода верхней границы интервала интегрирования
+     * Поле ввода верхней границы интервала интегрирования.
      */
     private JTextField maxXField;
 
     /**
-     * Поле ввода количества шагов интегрирования
+     * Поле ввода количества шагов интегрирования.
      */
     private JTextField stepsField;
 
     /**
-     * Текстовая область для вывода таблицы результатов
+     * Текстовая область для вывода таблицы результатов.
      */
     private JTextArea resultArea;
 
     /**
-     * Метка для отображения значения производной в начальной точке
+     * Метка для отображения значения производной в начальной точке.
      */
     private JLabel derivativeLabel;
 
     /**
-     * Панель для визуализации графиков решения, точных значений и ошибок
+     * Панель для визуализации графиков решения, точных значений и ошибок.
      */
     private GraphPanel graphPanel;
 
     /**
-     * Панель с вкладками (график/таблица результатов)
+     * Панель с вкладками (график/таблица результатов).
      */
     private JTabbedPane tabbedPane;
 
     /**
-     * Флажок управления отображением производной на графике
+     * Флажок управления отображением производной на графике.
      */
     private JCheckBox derivativeCheckBox;
 
     /**
-     * Флажок управления отображением ошибки на графике
+     * Флажок управления отображением ошибки на графике.
      */
     private JCheckBox errorCheckBox;
 
     /**
-     * Менеджер для вычисления значений тестовой функции
+     * Менеджер для вычисления значений тестовой функции.
      */
     private FunctionManager modelFunction;
 
     /**
-     * Менеджер для вычисления производных тестовой функции
+     * Менеджер для вычисления производных тестовой функции.
      */
     private FunctionManager derivativeFunction;
+    
+    /**
+     * Поле ввода количества точек интерполяции между шагами.
+     */
+    private JTextField interpolationPointsField;
 
     /**
      * Конструктор главного окна приложения.
@@ -127,6 +132,7 @@ public class RungeKuttaGUI extends JFrame {
         setupEventHandlers();
         setDefaultParametersForFunction();
         updateDerivative();
+        updateInterpolationFieldState(); // Initialize field state
     }
 
     /**
@@ -146,7 +152,8 @@ public class RungeKuttaGUI extends JFrame {
      * значений - Флажки отображения
      */
     private JPanel createInputPanel() {
-        JPanel panel = new JPanel(new GridLayout(9, 2, 5, 5));
+        // Changed to 0 rows to auto-size based on content
+        JPanel panel = new JPanel(new GridLayout(0, 2, 5, 5));
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         panel.add(new JLabel("Функция:"));
@@ -176,26 +183,26 @@ public class RungeKuttaGUI extends JFrame {
      * Инициализирует список доступных методов.
      */
     private void initializeMethods() {
-        methodComboBox.addItem(new MethodWrapper("Эверхарт (-:[2,32])", calc -> new Everhart(calc, 15, 1)));
-        methodComboBox.addItem(new MethodWrapper("Метод Эйлера (1:1)", EULER::new));
-        methodComboBox.addItem(new MethodWrapper("Метод Трапеций (2:2)", T2::new));
-        methodComboBox.addItem(new MethodWrapper("Метод Средней Точки (2:2)", CRK2a::new));
-        methodComboBox.addItem(new MethodWrapper("CRK3a (3:3)", CRK3a::new));
-        methodComboBox.addItem(new MethodWrapper("CRK3b (3:3)", CRK3b::new));
-        methodComboBox.addItem(new MethodWrapper("CRK3c Метод Хойна (3:3)", CRK3c::new));
-        methodComboBox.addItem(new MethodWrapper("Классический метод Рунге-Кутта (4:4)", CRK4a::new));
-        methodComboBox.addItem(new MethodWrapper("Правило 3/8 Кутта (4:4)", CRK4b::new));
-        methodComboBox.addItem(new MethodWrapper("CRK4c (4:4)", CRK4c::new));
-        methodComboBox.addItem(new MethodWrapper("CRK5a Метод Кутта-Нюстрема (6:5)", CRK5a::new));
-        methodComboBox.addItem(new MethodWrapper("Дорман-Принс (7:4)", calc -> new DOPRI5(calc, 4)));
-        methodComboBox.addItem(new MethodWrapper("Дорман-Принс (7:5)", calc -> new DOPRI5(calc, 5)));
-        methodComboBox.addItem(new MethodWrapper("CRK6a (7:6)", CRK6a::new));
-        methodComboBox.addItem(new MethodWrapper("Метод Бутчера (7:6)", CRK6x::new));
-        methodComboBox.addItem(new MethodWrapper("Дорман-Принс (13:7)", calc -> new DOPRI8(calc, 7)));
-        methodComboBox.addItem(new MethodWrapper("Дорман-Принс (13:8)", calc -> new DOPRI8(calc, 8)));
-        methodComboBox.addItem(new MethodWrapper("DormandPrince853Integrator", DormandPrince853Integrator::new));
+        methodComboBox.addItem(new MethodWrapper("Эверхарт (-:[2,32])", calc -> new Everhart(calc, 15, 1), true));
+        methodComboBox.addItem(new MethodWrapper("Метод Эйлера (1:1)", EULER::new, false));
+        methodComboBox.addItem(new MethodWrapper("Метод Трапеций (2:2)", T2::new, false));
+        methodComboBox.addItem(new MethodWrapper("Метод Средней Точки (2:2)", CRK2a::new, false));
+        methodComboBox.addItem(new MethodWrapper("CRK3a (3:3)", CRK3a::new, false));
+        methodComboBox.addItem(new MethodWrapper("CRK3b (3:3)", CRK3b::new, false));
+        methodComboBox.addItem(new MethodWrapper("CRK3c Метод Хойна (3:3)", CRK3c::new, false));
+        methodComboBox.addItem(new MethodWrapper("Классический метод Рунге-Кутта (4:4)", CRK4a::new, false));
+        methodComboBox.addItem(new MethodWrapper("Правило 3/8 Кутта (4:4)", CRK4b::new, false));
+        methodComboBox.addItem(new MethodWrapper("CRK4c (4:4)", CRK4c::new, false));
+        methodComboBox.addItem(new MethodWrapper("CRK5a Метод Кутта-Нюстрема (6:5)", CRK5a::new, false));
+        methodComboBox.addItem(new MethodWrapper("Дорман-Принс (7:4)", calc -> new DOPRI5(calc, 4), false));
+        methodComboBox.addItem(new MethodWrapper("Дорман-Принс (7:5)", calc -> new DOPRI5(calc, 5), false));
+        methodComboBox.addItem(new MethodWrapper("CRK6a (7:6)", CRK6a::new, false));
+        methodComboBox.addItem(new MethodWrapper("Метод Бутчера (7:6)", CRK6x::new, false));
+        methodComboBox.addItem(new MethodWrapper("Дорман-Принс (13:7)", calc -> new DOPRI8(calc, 7), false));
+        methodComboBox.addItem(new MethodWrapper("Дорман-Принс (13:8)", calc -> new DOPRI8(calc, 8), false));
+        methodComboBox.addItem(new MethodWrapper("DormandPrince853Integrator", DormandPrince853Integrator::new, false));
 //        methodComboBox.addItem(new MethodWrapper("AdaptiveDormandPrince853Integrator",
-//                calc -> new AdaptiveDormandPrince853Integrator(calc, 1e-8, 0.1, 1e-8, 1e-8)));
+//                calc -> new AdaptiveDormandPrince853Integrator(calc, 1e-8, 0.1, 1e-8, 1e-8), false);
     }
 
     /**
@@ -223,6 +230,25 @@ public class RungeKuttaGUI extends JFrame {
         panel.add(new JLabel("Шаги:"));
         stepsField = new JTextField("180");
         panel.add(stepsField);
+
+        panel.add(new JLabel("Точек интерполяции:"));
+        interpolationPointsField = new JTextField("0"); // Значение по умолчанию
+        panel.add(interpolationPointsField);
+    }
+
+    /**
+     * Настраивает состояние поля интерполяции в зависимости от выбранного метода.
+     * <p>
+     * Логика работы:
+     * <ul>
+     * <li>Определяет поддержку интерполяции через MethodWrapper.supportsInterpolation()</li>
+     * <li>Автоматически блокирует поле для методов без интерполяции</li>
+     * <li>Вызывается при инициализации и смене метода</li>
+     * </ul>
+     */
+    private void updateInterpolationFieldState() {
+        MethodWrapper wrapper = (MethodWrapper) methodComboBox.getSelectedItem();
+        interpolationPointsField.setEnabled(wrapper.supportsInterpolation());
     }
 
     /**
@@ -291,6 +317,7 @@ public class RungeKuttaGUI extends JFrame {
             setDefaultParametersForFunction();
         });
         x0Field.addActionListener(e -> updateDerivative());
+        methodComboBox.addActionListener(e -> updateInterpolationFieldState());
     }
 
     /**
@@ -325,10 +352,14 @@ public class RungeKuttaGUI extends JFrame {
             double derivative = function.derivative(x0);
 //            derivativeLabel.setText("Производная в x0: " + String.format("%.6f", derivative));
         } catch (NumberFormatException e) {
-            derivativeLabel.setText("Производная в x0: ошибка ввода числа");
+            if (derivativeLabel != null) {
+                derivativeLabel.setText("Производная в x0: ошибка ввода числа");
+            }
             LOG.fatal("Производная в x0: ошибка ввода числа: {} ;", e);
         } catch (Exception e) {
-            derivativeLabel.setText("Производная в x0: ошибка вычисления");
+            if (derivativeLabel != null) {
+                derivativeLabel.setText("Производная в x0: ошибка вычисления");
+            }
             y0Field.setText("");
             LOG.fatal("Производная в x0: ошибка вычисления: {} ;", e);
 
@@ -380,8 +411,9 @@ public class RungeKuttaGUI extends JFrame {
         double minX = Double.parseDouble(minXField.getText());
         double maxX = Double.parseDouble(maxXField.getText());
         int steps = Integer.parseInt(stepsField.getText());
+        int interpolationPoints = Integer.parseInt(interpolationPointsField.getText());
 
-        return new CalculationParameters(function, methodWrapper, x0, minX, maxX, steps);
+        return new CalculationParameters(function, methodWrapper, x0, minX, maxX, steps, interpolationPoints);
     }
 
     /**
@@ -436,12 +468,22 @@ public class RungeKuttaGUI extends JFrame {
     }
 
     /**
-     * Выполняет расчет методом Рунге-Кутты.
+     * Выполняет численный расчет ОДУ.
+     * <p>
+     * Алгоритм:
+     * <ol>
+     * <li>Создает RightCalculator для вычисления правых частей ОДУ</li>
+     * <li>Инициализирует метод Рунге-Кутты через MethodWrapper</li>
+     * <li>Выбирает режим расчета (с интерполяцией/без) на основе параметров</li>
+     * <li>Использует RungeKuttaSolver для выполнения вычислений</li>
+     * </ol>
      *
      * @param params Параметры расчета
-     * @param h Шаг интегрирования
-     * @return Список решений
+     * @param h      Шаг интегрирования
+     * @return Список точек решения, где каждый элемент - массив [x, y, ...]
+     * @see RungeKuttaSolver#solveWithInterpolation
      */
+
     private List<double[]> performCalculation(CalculationParameters params, double h) {
         RightCalculator calculator = (t, y, f, parm) -> {
             try {
@@ -457,62 +499,84 @@ public class RungeKuttaGUI extends JFrame {
         RungeKuttaMethod method = params.getMethodWrapper().createMethod(calculator);
         double[] y0Arr = {params.getFunction().value(params.getX0())};
 
-        return RungeKuttaSolver.solve(
-                method, params.getMinX(), y0Arr, h, params.getSteps(), null
-        );
+        int interpolationPoints = params.getInterpolationPoints();
+        if (interpolationPoints > 0 && method.supportsInterpolation()) {
+            return RungeKuttaSolver.solveWithInterpolation(
+                    method, params.getMinX(), y0Arr, h, params.getSteps(), interpolationPoints, null
+            );
+        } else {
+            return RungeKuttaSolver.solve(
+                    method, params.getMinX(), y0Arr, h, params.getSteps(), null
+            );
+        }
     }
-
     /**
-     * Подготавливает данные для визуализации результатов расчета.
-     *
-     * @param params Параметры расчета
-     * @param solution Результаты расчета
-     * @param h Шаг интегрирования
-     * @return Объект с данными для визуализации
+     * Подготавливает данные для визуализации.
+     * <p>
+     * Вычисляет:
+     * <ul>
+     * <li>Численное решение во всех точках</li>
+     * <li>Аналитическое решение для сравнения</li>
+     * <li>Значения производных (если включено отображение)</li>
+     * <li>Локальные и глобальные ошибки</li>
+     * </ul>
+     * 
+     * @param params   Параметры расчета
+     * @param solution Результаты численного решения
+     * @param h        шаг (может отличаться от реального при интерполяции)
+     * @return Структура данных для визуализации
      */
-    private VisualizationData prepareVisualizationData(
-            CalculationParameters params,
-            List<double[]> solution,
-            double h
-    ) {
-        List<Double> xValues = new ArrayList<>();
-        List<Double> yValues = new ArrayList<>();
-        List<Double> exactValues = new ArrayList<>();
-        List<Double> derivativeValues = new ArrayList<>();
-        List<Double> errorValues = new ArrayList<>();
+ private VisualizationData prepareVisualizationData(
+        CalculationParameters params,
+        List<double[]> solution,
+        double h
+) {
+    double minX = params.getMinX();
+    double maxX = params.getMaxX();
+    int n = solution.size();
 
-        double maxError = 0;
-        double sumError = 0;
-        double currentX = params.getMinX();
+    // Calculate step between points based on actual solution size
+    double stepIncrement = (maxX - minX) / (n - 1);
 
-        for (int i = 0; i < solution.size(); i++) {
-            xValues.add(currentX);
-            double numY = solution.get(i)[0];
-            yValues.add(numY);
+    List<Double> xValues = new ArrayList<>(n);
+    List<Double> yValues = new ArrayList<>(n);
+    List<Double> exactValues = new ArrayList<>(n);
+    List<Double> derivativeValues = new ArrayList<>();
+    List<Double> errorValues = new ArrayList<>(n);
 
-            double exactY = params.getFunction().value(currentX);
-            exactValues.add(exactY);
+    double maxError = 0;
+    double sumError = 0;
 
-            double error = Math.abs(numY - exactY);
-            errorValues.add(error);
+    for (int k = 0; k < n; k++) {
+        double x = minX + k * stepIncrement;
+        xValues.add(x);
 
-            sumError += error;
-            if (error > maxError) {
-                maxError = error;
-            }
+        double numY = solution.get(k)[0];
+        yValues.add(numY);
 
-            if (derivativeCheckBox.isSelected()) {
-                derivativeValues.add(params.getFunction().numericalDerivative(currentX));
-            }
+        double exactY = params.getFunction().value(x);
+        exactValues.add(exactY);
 
-            currentX += (i < solution.size() - 1) ? h : 0;
+        double error = Math.abs(numY - exactY);
+        errorValues.add(error);
+
+        sumError += error;
+        if (error > maxError) {
+            maxError = error;
         }
 
-        return new VisualizationData(
-                xValues, yValues, exactValues, derivativeValues, errorValues,
-                maxError, sumError / solution.size()
-        );
+        if (derivativeCheckBox.isSelected()) {
+            derivativeValues.add(params.getFunction().numericalDerivative(x));
+        }
     }
+
+    double avgError = sumError / n;
+
+    return new VisualizationData(
+            xValues, yValues, exactValues, derivativeValues, errorValues,
+            maxError, avgError
+    );
+}
 
     /**
      * Обновляет график на основе подготовленных данных.
@@ -628,7 +692,10 @@ public class RungeKuttaGUI extends JFrame {
     }
 
     /**
-     * Хранит параметры для выполнения расчета.
+     * Параметры расчета для одного запуска.
+     * <p>
+     * Служит контейнером для передачи данных между компонентами системы.
+     * Все поля объявлены final для обеспечения неизменности во время расчета.
      */
     private static class CalculationParameters {
 
@@ -663,6 +730,17 @@ public class RungeKuttaGUI extends JFrame {
         private final int steps;
 
         /**
+         * Количество точек интерполяции между узлами сетки.
+         * <p>
+         * Значение игнорируется если:
+         * <ul>
+         * <li>Метод не поддерживает интерполяцию (supportsInterpolation() == false)</li>
+         * <li>Значение ≤ 0</li>
+         * </ul>
+         */
+        private final int interpolationPoints;
+
+        /**
          * Создаёт объект с параметрами расчета.
          *
          * @param function Тестовая функция
@@ -673,13 +751,15 @@ public class RungeKuttaGUI extends JFrame {
          * @param steps Количество шагов
          */
         public CalculationParameters(TestFunction function, MethodWrapper methodWrapper,
-                double x0, double minX, double maxX, int steps) {
+            double x0, double minX, double maxX, int steps, int interpolationPoints) {
+            
             this.function = function;
             this.methodWrapper = methodWrapper;
             this.x0 = x0;
             this.minX = minX;
             this.maxX = maxX;
             this.steps = steps;
+            this.interpolationPoints = interpolationPoints;
         }
 
         /**
@@ -723,10 +803,18 @@ public class RungeKuttaGUI extends JFrame {
         public int getSteps() {
             return steps;
         }
+
+        public int getInterpolationPoints() {
+            return interpolationPoints;
+        }
+
     }
 
     /**
-     * Хранит данные для визуализации результатов расчета.
+     * Контейнер для данных визуализации.
+     * <p>
+     * Оптимизирован для быстрого доступа при рендеринге графиков.
+     * Все коллекции инициализируются с предсказуемой емкостью.
      */
     private static class VisualizationData {
 
@@ -746,7 +834,14 @@ public class RungeKuttaGUI extends JFrame {
         private final List<Double> exactValues;
 
         /**
-         * Значения производной функции.
+         * Значения производной в точках расчета.
+         * <p>
+         * Особенности:
+         * <ul>
+         * <li>Рассчитывается только при включенной опции показа производной</li>
+         * <li>Использует численное дифференцирование тестовой функции</li>
+         * <li>Не используется в методах решения - только для визуализации</li>
+         * </ul>
          */
         private final List<Double> derivativeValues;
 

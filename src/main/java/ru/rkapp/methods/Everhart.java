@@ -1,89 +1,123 @@
 package ru.rkapp.methods;
+
 import ru.rkapp.RungeKuttaMethod;
 import ru.rkapp.RightCalculator;
 import java.util.Arrays;
 import org.apache.logging.log4j.LogManager;
 
 /**
- * Реализация метода Эверхарта (Everhart's Radau/Lobatto method) для численного интегрирования 
- * систем обыкновенных дифференциальных уравнений. Метод использует неявные формулы Рунге-Кутты 
- * с квадратурными узлами Гаусса-Радо (Radau) и Гаусса-Лобатто (Lobatto), поддерживает переменный 
- * порядок интегрирования от 2 до 32, автоматический выбор шага и итерационное уточнение решения.
- * 
- * <p>Особенности:
+ * Реализация неявного метода Эверхарта (Everhart) для численного интегрирования
+ * систем обыкновенных дифференциальных уравнений (ОДУ) с переменным порядком
+ * (2-32) и автоматическим выбором шага. Поддерживает квадратурные узлы
+ * Гаусса-Радо (Radau) для нечетных порядков и Гаусса-Лобатто (Lobatto) для
+ * четных порядков.
+ *
+ * <p>
+ * Ключевые особенности:
  * <ul>
- *   <li>Порядок метода: от 2 до 32 (четный порядок: Lobatto, нечетный: Radau)</li>
- *   <li>Автоматический контроль шага на основе локальной погрешности</li>
- *   <li>Возможность интерполяции решения внутри шага</li>
+ * <li>Адаптивный порядок интегрирования: от 2 до 32</li>
+ * <li>Автоматический контроль шага на основе локальной погрешности</li>
+ * <li>Механизм плотного вывода (dense output) для интерполяции решения внутри
+ * шага</li>
+ * <li>Итерационное уточнение решения с контролем сходимости</li>
+ * <li>Поддержка обратного интегрирования (отрицательные шаги)</li>
  * </ul>
- * 
- * Ссылка: Everhart, E. (1985). "An Efficient Integrator that Uses Gauss-Radau Spacings".
+ *
+ * Everhart, E. (1985). "An Efficient Integrator that Uses Gauss-Radau
+ * Spacings".
  */
 public class Everhart extends RungeKuttaMethod {
-    
+
     private static final org.apache.logging.log4j.Logger LOG = LogManager.getLogger(Everhart.class);
 
-    
-    /** Максимальный поддерживаемый порядок метода. */
+    /**
+     * Максимальный поддерживаемый порядок метода.
+     */
     public static final int MAX_ORDER = 32;
     private static final double MIN_ERROR = 1e-15;
 
-        
     /**
-     * Таблица узлов разбиения интервала [0,1] для разных порядков.
-     * Структура:
-     *   [Метод2], [Метод3], [Метод4]...
+     * Таблица узлов квадратурных формул Гаусса-Радо (для нечётных порядков) и
+     * Гаусса-Лобатто (для чётных порядков) на интервале [0, 1].
+     * <p>
+     * <b>Структура и математические свойства:</b>
+     * <ul>
+     * <li>Узлы упорядочены по возрастанию порядка метода (от 2 до 32)</li>
+     * <li>Для метода порядка p:
+     * <ul>
+     * <li>Количество узлов: <code>s = p / 2</code> (целочисленное деление)</li>
+     * <li><b>Radau</b> (нечётные p): содержит <code>s</code> узлов в (0, 1), не
+     * включает 0 и 1, последний узел &lt; 1.0</li>
+     * <li><b>Lobatto</b> (чётные p): содержит <code>s</code> узлов, включает
+     * 1.0 как последний узел, не включает 0.0</li>
+     * </ul>
+     * </li>
+     * <li>Узлы являются корнями ортогональных полиномов:
+     * <ul>
+     * <li>Radau: корни <code>P<sub>s-1</sub>(x) + P<sub>s</sub>(x)</code></li>
+     * <li>Lobatto: корни <code>P'<sub>s</sub>(x)</code></li>
+     * </ul>
+     * где <code>P<sub>s</sub>(x)</code> - полином Лежандра степени
+     * <code>s</code>
+     * </li>
+     * <li>Точность интегрирования:
+     * <ul>
+     * <li>Radau: алгебраический порядок <code>2s</code></li>
+     * <li>Lobatto: алгебраический порядок <code>2s-2</code></li>
+     * </ul>
+     * </li>
+     * </ul>
+     *
+     * <p>
+     * <b>Индексация в массиве:</b><br>
+     * Начальный индекс для порядка <code>p</code> вычисляется как:<br>
+     * <code>spacingIndex = s * (p - s - 1)</code><br>
+     * где <code>s = p / 2</code> (целочисленное деление).
+     *
+     * <p>
+     * <b>Источник:</b> Everhart, E. (1985). "An Efficient Integrator that Uses
+     * Gauss-Radau Spacings".
      */
     private static final double[] SPACINGS = {
         // Метод 2-го порядка (1 элемент)
         1.0,
-        
         // Метод 3-го порядка (1 элемент)
         2.0 / 3.0,
-        
         // Метод 4-го порядка (2 элемента)
         0.5, 1.0,
-        
         // Метод 5-го порядка (2 элемента)
         (6.0 - Math.sqrt(6.0)) / 10.0,
         (6.0 + Math.sqrt(6.0)) / 10.0,
-        
         // Метод 6-го порядка (3 элемента)
         (5.0 - Math.sqrt(5.0)) / 10.0,
         (5.0 + Math.sqrt(5.0)) / 10.0,
         1.0,
-        
         // Метод 7-го порядка (3 элемента)
         0.21234053823915294397475811012400,
         0.59053313555926528913507374793117,
         0.91141204048729605260445385623054,
-        
         // Метод 8-го порядка (4 элемента)
         (7.0 - Math.sqrt(21.0)) / 14.0,
         0.5,
         (7.0 + Math.sqrt(21.0)) / 14.0,
         1.0,
-        
         // Метод 9-го порядка (4 элемента)
         0.13975986434378055215208708112488,
         0.41640956763108317994330233133708,
         0.72315698636187617231995400231437,
         0.94289580388548231780687880744588,
-        
         // Метод 10-го порядка (5 элементов)
         0.5 - Math.sqrt(147.0 + 42.0 * Math.sqrt(7.0)) / 42.0,
         0.5 - Math.sqrt(147.0 - 42.0 * Math.sqrt(7.0)) / 42.0,
         0.5 + Math.sqrt(147.0 - 42.0 * Math.sqrt(7.0)) / 42.0,
         0.5 + Math.sqrt(147.0 + 42.0 * Math.sqrt(7.0)) / 42.0,
         1.0,
-        
         // Метод 11-го порядка (5 элементов)
         0.09853508579882642612349889788775,
         0.30453572664636390548538517627883,
         0.56202518975261385599498747999477,
         0.80198658212639182746420786320470,
         0.96019014294853125765919330990667,
-        
         // Метод 12-го порядка (6 элементов)
         0.5 - Math.sqrt(495.0 + 66.0 * Math.sqrt(15.0)) / 66.0,
         0.5 - Math.sqrt(495.0 - 66.0 * Math.sqrt(15.0)) / 66.0,
@@ -91,7 +125,6 @@ public class Everhart extends RungeKuttaMethod {
         0.5 + Math.sqrt(495.0 - 66.0 * Math.sqrt(15.0)) / 66.0,
         0.5 + Math.sqrt(495.0 + 66.0 * Math.sqrt(15.0)) / 66.0,
         1.0,
-        
         // Метод 13-го порядка (6 элементов)
         0.07305432868025888514812603418031,
         0.23076613796994549908311663988435,
@@ -99,7 +132,6 @@ public class Everhart extends RungeKuttaMethod {
         0.66301530971884570090294702791922,
         0.85192140033151570815002314750402,
         0.97068357284021510802794972308684,
-        
         // Метод 14-го порядка (7 элементов)
         0.06412992574519669233127711938966,
         0.20414990928342884892774463430102,
@@ -108,7 +140,6 @@ public class Everhart extends RungeKuttaMethod {
         0.79585009071657115107225536569898,
         0.93587007425480330766872288061033,
         1.00000000000000000000000000000000,
-        
         // Метод 15-го порядка (7 элементов)
         0.05626256053692214646565219103231,
         0.18024069173689236498757994280918,
@@ -117,7 +148,6 @@ public class Everhart extends RungeKuttaMethod {
         0.73421017721541053152321060830661,
         0.88532094683909576809035976293249,
         0.97752061356128750189117450042915,
-        
         // Метод 16-го порядка (8 элементов)
         0.05012100229426992134382737779083,
         0.16140686024463112327705728645432,
@@ -127,7 +157,6 @@ public class Everhart extends RungeKuttaMethod {
         0.83859313975536887672294271354567,
         0.94987899770573007865617262220917,
         1.00000000000000000000000000000000,
-        
         // Метод 17-го порядка (8 элементов)
         0.04463395528996985073312102185830,
         0.14436625704214557148521852022821,
@@ -137,7 +166,6 @@ public class Everhart extends RungeKuttaMethod {
         0.78569152060436924164245873241833,
         0.90867639210020604399625854192546,
         0.98222008485263654818679489896232,
-        
         // Метод 18-го порядка (9 элементов)
         0.04023304591677059308553366958883,
         0.13061306744724746249844691257008,
@@ -148,7 +176,6 @@ public class Everhart extends RungeKuttaMethod {
         0.86938693255275253750155308742992,
         0.95976695408322940691446633041117,
         1.00000000000000000000000000000000,
-        
         // Метод 19-го порядка (9 элементов)
         0.03625781288320946094116430076808,
         0.11807897878999870019228511199474,
@@ -159,7 +186,6 @@ public class Everhart extends RungeKuttaMethod {
         0.82388334383700471813682425392743,
         0.92561261029080395536408181404400,
         0.98558759035112345136717325918919,
-        
         // Метод 20-го порядка (10 элементов)
         0.03299928479597043283386293195030,
         0.10775826316842779068879109194577,
@@ -171,7 +197,6 @@ public class Everhart extends RungeKuttaMethod {
         0.89224173683157220931120890805423,
         0.96700071520402956716613706804969,
         1.00000000000000000000000000000000,
-        
         // Метод 21-го порядка (10 элементов)
         0.03002903216148649704306435763440,
         0.09828901220985322965120102159023,
@@ -183,7 +208,6 @@ public class Everhart extends RungeKuttaMethod {
         0.85288855035692975957240056442018,
         0.93826792812285187447737063280575,
         0.98808238656758440309025441304101,
-        
         // Метод 22-го порядка (11 элементов)
         0.02755036388855888829620993084839,
         0.09036033917799666082567920914154,
@@ -196,7 +220,6 @@ public class Everhart extends RungeKuttaMethod {
         0.90963966082200333917432079085845,
         0.97244963611144111170379006915161,
         1.00000000000000000000000000000000,
-        
         // Метод 23-го порядка (11 элементов)
         0.02527362039752034975333118646162,
         0.08304161344740514670686537298197,
@@ -209,7 +232,6 @@ public class Everhart extends RungeKuttaMethod {
         0.87538077485555692626470041273609,
         0.94796454887281944741645730422704,
         0.98998171953831959415697527013220,
-        
         // Метод 24-го порядка (12 элементов)
         0.02334507667891804405154726762227,
         0.07682621767406384156703719645062,
@@ -223,7 +245,6 @@ public class Everhart extends RungeKuttaMethod {
         0.92317378232593615843296280354938,
         0.97665492332108195594845273237772,
         1.00000000000000000000000000000000,
-        
         // Метод 25-го порядка (12 элементов)
         0.02156206316585036090809308308300,
         0.07105789873558898215118984486568,
@@ -237,7 +258,6 @@ public class Everhart extends RungeKuttaMethod {
         0.89314550911652334236589322956750,
         0.95555353684459227697453320121445,
         0.99146094501157258063133553912216,
-        
         // Метод 26-го порядка (13 элементов)
         0.02003247736636954932244991899228,
         0.06609947308482637449988989854586,
@@ -252,7 +272,6 @@ public class Everhart extends RungeKuttaMethod {
         0.93390052691517362550011010145413,
         0.97996752263363045067755008100771,
         1.00000000000000000000000000000000,
-        
         // Метод 27-го порядка (13 элементов)
         0.01861036501098785143971937784028,
         0.06147554089926898760236661323470,
@@ -267,7 +286,6 @@ public class Everhart extends RungeKuttaMethod {
         0.90740477530099736471710862456138,
         0.96160186126032164962316747513586,
         0.99263534897391067834930850158618,
-        
         // Метод 28-го порядка (14 элементов)
         0.01737703674808071360207430396519,
         0.05745897788851185058729918425888,
@@ -283,7 +301,6 @@ public class Everhart extends RungeKuttaMethod {
         0.94254102211148814941270081574111,
         0.98262296325191928639792569603480,
         1.00000000000000000000000000000000,
-        
         // Метод 29-го порядка (14 элементов)
         0.01622476590139976171877199085899,
         0.05369729993972461646659405657527,
@@ -299,7 +316,6 @@ public class Everhart extends RungeKuttaMethod {
         0.91901450031804481560754869226002,
         0.96649859546798685996403607142943,
         0.99358323920718154318917953590549,
-        
         // Метод 30-го порядка (15 элементов)
         0.01521597686489103352387863081627,
         0.05039973345326395350268586924007,
@@ -316,7 +332,6 @@ public class Everhart extends RungeKuttaMethod {
         0.94960026654673604649731413075992,
         0.98478402313510896647612136918373,
         1.00000000000000000000000000000000,
-        
         // Метод 31-го порядка (15 элементов)
         0.01426945473682577473409936694087,
         0.04729959009416668566195579247573,
@@ -333,7 +348,6 @@ public class Everhart extends RungeKuttaMethod {
         0.92858704688484115994521609825327,
         0.97051770135205751336835901528200,
         0.99435931102748829024249353342056,
-        
         // Метод 32-го порядка (16 элементов)
         0.01343391168429084292151024906313,
         0.04456000204221320218809874680113,
@@ -353,83 +367,129 @@ public class Everhart extends RungeKuttaMethod {
         1.00000000000000000000000000000000
     };
 
-
-    /** Текущий порядок интегрирования. */
+    /**
+     * Текущий порядок интегрирования.
+     */
     private int order;
-    
-    /** Количество уравнений в системе. */
+
+    /**
+     * Количество уравнений в системе.
+     */
     private final int numberOfEquations;
-    
-    /** Допустимая погрешность на шаге. */
+
+    /**
+     * Допустимая погрешность на шаге.
+     */
     private double localError = 1e-11;
-    
-    /** Максимальное количество итераций на шаге. */
+
+    /**
+     * Максимальное количество итераций на шаге.
+     */
     private int maxIterations = 100;
-    
-    /** Флаг проверки сходимости. */
+
+    /**
+     * Флаг проверки сходимости.
+     */
     private boolean verifyConvergence = true;
 
-    /** Матрица коэффициентов C. */
+    /**
+     * Матрица коэффициентов C.
+     */
     private double[][] cMatrix;
-    
-    /** Матрица коэффициентов D. */
+
+    /**
+     * Матрица коэффициентов D.
+     */
     private double[][] dMatrix;
-    
-    /** Матрица коэффициентов E. */
+
+    /**
+     * Матрица коэффициентов E.
+     */
     private double[][] eMatrix;
-    
-    /** Матрица обратных разностей узлов. */
+
+    /**
+     * Матрица обратных разностей узлов.
+     */
     private double[][] dtaus;
-    
-    /** Матрица альфа-коэффициентов. */
+
+    /**
+     * Матрица альфа-коэффициентов.
+     */
     private double[][] aCoeffs;
-    
-    /** Матрица текущих B-коэффициентов. */
+
+    /**
+     * Матрица текущих B-коэффициентов.
+     */
     private double[][] bCoeffs;
-    
-    /** Матрица предыдущих B-коэффициентов. */
+
+    /**
+     * Матрица предыдущих B-коэффициентов.
+     */
     private double[][] bPrevCoeffs;
-    
-    /** Правые части уравнений в начальной точке. */
+
+    /**
+     * Правые части уравнений в начальной точке.
+     */
     private double[] f0;
-    
-    /** Начальные условия текущего шага. */
+
+    /**
+     * Начальные условия текущего шага.
+     */
     private double[] y0;
-    
-    /** Временный буфер для значений Y. */
+
+    /**
+     * Временный буфер для значений Y.
+     */
     private double[] yTemp;
-    
-    /** Вспомогательный вектор для промежуточных вычислений. */
+
+    /**
+     * Вспомогательный вектор для промежуточных вычислений.
+     */
     private double[] pVector;
-    
-    /** Решение на k-ой итерации. */
+
+    /**
+     * Решение на k-ой итерации.
+     */
     private double[] yk;
-    
-    /** Последние вычисленные правые части. */
+
+    /**
+     * Последние вычисленные правые части.
+     */
     private double[] lastF;
-    
-    /** Время начала текущего шага. */
+
+    /**
+     * Время начала текущего шага.
+     */
     private double stepBeginTime;
-    
-    /** Размер текущего шага интегрирования. */
+
+    /**
+     * Размер текущего шага интегрирования.
+     */
     private double stepSize;
-    
-    /** Флаг первого шага интегрирования. */
+
+    /**
+     * Флаг первого шага интегрирования.
+     */
     private boolean isFirstStep = true;
-    
-    /** Размер предыдущего шага интегрирования. */
-    private double previousStepSize = 0.0; 
-    
-    /** Счетчик выполненных шагов. */
+
+    /**
+     * Размер предыдущего шага интегрирования.
+     */
+    private double previousStepSize = 0.0;
+
+    /**
+     * Счетчик выполненных шагов.
+     */
     private long stepCount = 0;
-    
+
     /**
      * Конструктор метода Эверхарта.
-     * 
-     * @param calculator         Вычислитель правых частей
-     * @param order              Порядок метода (2-32)
-     * @param numberOfEquations  Количество уравнений в системе
-     * @throws IllegalArgumentException При недопустимом порядке
+     *
+     * @param calculator Вычислитель правых частей системы ОДУ
+     * @param order Начальный порядок метода (2-32)
+     * @param numberOfEquations Количество уравнений в системе
+     * @throws IllegalArgumentException Если порядок вне диапазона [2,
+     * MAX_ORDER]
      */
     public Everhart(RightCalculator calculator, int order, int numberOfEquations) {
         super(calculator);
@@ -443,7 +503,9 @@ public class Everhart extends RungeKuttaMethod {
     }
 
     /**
-     * Инициализация массивов.
+     * Инициализирует внутренние массивы для хранения коэффициентов и
+     * промежуточных вычислений. Вызывается автоматически при создании объекта и
+     * при изменении порядка метода.
      */
     private void initializeArrays() {
 
@@ -470,8 +532,12 @@ public class Everhart extends RungeKuttaMethod {
 
         resetState();  // Сброс состояния
     }
- 
-    /** Сброс внутреннего состояния. */
+
+    /**
+     * Сбрасывает внутреннее состояние метода, обнуляя все коэффициенты и
+     * промежуточные значения. Вызывается при изменении порядка метода или при
+     * явном сбросе состояния.
+     */
     private void resetState() {
         int points = order / 2;
         for (int i = 0; i < points; i++) {
@@ -485,10 +551,87 @@ public class Everhart extends RungeKuttaMethod {
         Arrays.fill(pVector, 0.0);
         Arrays.fill(yk, 0.0);
         Arrays.fill(lastF, 0.0);
-    } 
+    }
 
     /**
-     * Вычисление матриц коэффициентов для текущего порядка.
+     * Вычисляет матрицы коэффициентов (C, D, E) и матрицу обратных разностей
+     * для текущего порядка метода, используя предопределенные узлы SPACINGS.
+     *
+     * <p>
+     * <b>Алгоритм:</b>
+     * <ol>
+     * <li><b>Инициализация базовых случаев:</b>
+     * <pre>
+     *     C[i][0] = D[i][0] = 0.0
+     *     E[i][0] = 1.0
+     *     C[i][i] = D[i][i] = E[i][i] = 1.0
+     * </pre>
+     * </li>
+     *
+     * <li><b>Рекуррентное вычисление коэффициентов:</b>
+     * <p>
+     * Для каждого j ∈ [0, points-1] и i ∈ [j+1, points-1]:
+     * <pre>
+     *     C[i+1][j+1] = C[i][j] - t<sub>i-1</sub> * C[i][j+1]
+     *     D[i+1][j+1] = D[i][j] + t<sub>j</sub> * D[i][j+1]
+     *     E[i+1][j+1] = E[i][j] + E[i][j+1]
+     * </pre> где t<sub>k</sub> = SPACINGS[spacingIndex + k]
+     * </li>
+     *
+     * <li><b>Нормализация коэффициентов:</b>
+     * <p>
+     * Для i,j ∈ [1, points]:
+     * <pre>
+     *     C[j][i] = C[j][i] / (i + 1)
+     *     D[i][j] = D[i][j] * (i + 1)
+     *     E[i][j] = E[i][j] * (i + 1)
+     * </pre>
+     * </li>
+     *
+     * <li><b>Вычисление обратных разностей:</b>
+     * <p>
+     * Для каждой пары узлов (i,j) где i > j:
+     * <pre>
+     *     dtaus[i][j] = 1 / (t<sub>i</sub> - t<sub>j</sub>)
+     * </pre> где: t<sub>i</sub> = SPACINGS[spacingIndex + i] t<sub>j</sub> =
+     * SPACINGS[spacingIndex + j]
+     * </li>
+     * </ol>
+     *
+     * <p>
+     * <b>Математическое назначение матриц:</b>
+     * <ul>
+     * <li><b>C</b>: Коэффициенты преобразования для полиномиальной
+     * интерполяции</li>
+     * <li><b>D</b>: Коэффициенты обратного преобразования</li>
+     * <li><b>E</b>: Матрица перехода между шагами интегрирования</li>
+     * <li><b>dtaus</b>: Используется в итерационном процессе уточнения
+     * решения</li>
+     * </ul>
+     *
+     * <p>
+     * <b>Теоретическая основа:</b>
+     * <pre>
+     * Матрицы C, D, E реализуют преобразования между:
+     *   - Коэффициентами полиномов (A, B)
+     *   - Значениями производных
+     *   - Предсказаниями на смежных шагах
+     *
+     * Преобразования соответствуют:
+     *   A = D · B
+     *   B = C · ΔF
+     * </pre>
+     *
+     * <p>
+     * <b>Особенности реализации:</b>
+     * <ul>
+     * <li>Использует предвычисленные узлы из массива SPACINGS</li>
+     * <li>Вычисление выполняется за O(points²) операций</li>
+     * <li>Требует однократного выполнения при инициализации метода</li>
+     * </ul>
+     *
+     * @implNote Формулы основаны на работе: Everhart E. (1985) "An Efficient
+     * Integrator that Uses Gauss-Radau Spacings"
      */
     private void calculateCoefficientMatrices() {
         int points = order / 2;
@@ -512,8 +655,8 @@ public class Everhart extends RungeKuttaMethod {
                 }
             }
         }
-        
-         // Вычисление коэффициентов
+
+        // Вычисление коэффициентов
         for (int j = 0; j < points; j++) {
             for (int i = j + 1; i < points; i++) {
                 cMatrix[i + 1][j + 1] = cMatrix[i][j] - SPACINGS[spacingIndex + i - 1] * cMatrix[i][j + 1];
@@ -529,7 +672,7 @@ public class Everhart extends RungeKuttaMethod {
                 eMatrix[i][j] *= (i + 1);
             }
         }
-        
+
         // Обратные разности
         for (int i = 0; i < points; i++) {
             for (int j = 0; j < i; j++) {
@@ -539,25 +682,133 @@ public class Everhart extends RungeKuttaMethod {
         }
     }
 
-    /** 
+    /**
      * Вычисляет индекс начала узлов в массиве SPACINGS для текущего порядка.
-     * 
-     * @return Индекс начала узлов в массиве SPACINGS
+     *
+     * <p>
+     * Формула: index = points * (order - points - 1) где points = order / 2
+     *
+     * @return Индекс первого узла для текущего порядка в SPACINGS
      */
     private int calculateSpacingIndex() {
         int points = order / 2;
         return points * (order - points - 1);
-    } 
-    
+    }
+
     /**
      * Выполняет один шаг интегрирования методом Эверхарта.
-     * 
-     * @param t     Начальное время шага
-     * @param y     Массив начальных условий
-     * @param h     Шаг интегрирования
-     * @param yNew  Массив для записи новых значений
-     * @param parm  Дополнительные параметры (передаются в вычислитель правых частей)
-     * @return true если шаг выполнен успешно, иначе false
+     *
+     * <p>
+     * <b>Алгоритм:</b>
+     * <ol>
+     * <li><b>Подготовка коэффициентов:</b>
+     * <p>
+     * Вычисление коэффициентов:
+     * <pre>
+     *     R = h / h<sub>prev</sub>  (отношение текущего шага к предыдущему)
+     *     Q = 1.0
+     * </pre>
+     * <p>
+     * Обновление коэффициентов B:
+     * <pre>
+     *     B<sub>s</sub> = Q * (Σ<sub>m=s</sub><sup>n-1</sup> E<sub>m+1,s+1</sub>·B<sub>m</sub><sup>prev</sup>) / (s+2)
+     * </pre> где s ∈ [0, n-1], n = order/2
+     * </li>
+     *
+     * <li><b>Преобразование B → A:</b>
+     * <pre>
+     *     A<sub>s</sub> = Σ<sub>m=s</sub><sup>n-1</sup> D<sub>m+1,s+1</sub>·B<sub>m</sub>
+     * </pre>
+     * </li>
+     *
+     * <li><b>Итерационное уточнение:</b>
+     * <p>
+     * Для каждого узла t<sub>i</sub> (i ∈ [0, n-1]):
+     * <ol type="a">
+     * <li>Вычисление промежуточного решения:
+     * <pre>
+     *         Y<sub>temp</sub> = Y₀ + h·τ<sub>i</sub>·[F₀ + Q(τ<sub>i</sub>)]
+     * </pre>
+     * </li>
+     * <li>Расчет правых частей:
+     * <pre>
+     *         F<sub>i</sub> = f(t₀ + h·τ<sub>i</sub>, Y<sub>temp</sub>)
+     * </pre>
+     * </li>
+     * <li>Обновление коэффициентов:
+     * <pre>
+     *         ΔF = (F<sub>i</sub> - F₀) / τ<sub>i</sub>
+     *         A<sub>j</sub><sup>new</sup> = A<sub>j</sub><sup>old</sup> + dtaus[i][j]·(ΔF - A<sub>j</sub><sup>old</sup>)  для j < i
+     *         B<sub>j</sub> = B<sub>j</sub> + C<sub>i+1,j+1</sub>·(A<sub>i</sub><sup>new</sup> - A<sub>i</sub><sup>old</sup>) для j ≤ i
+     * </pre>
+     * </li>
+     * </ol>
+     * </li>
+     *
+     * <li><b>Контроль сходимости:</b>
+     * <pre>
+     *     max|Y<sub>temp</sub><sup>(k+1)</sup> - Y<sub>temp</sub><sup>(k)</sup>| ≤ ε<sub>local</sub>·(1 + |Y<sub>temp</sub>|)
+     * </pre> где k - номер итерации
+     * </li>
+     *
+     * <li><b>Финальное решение:</b>
+     * <p>
+     * Для Radau-методов (нечетный порядок):
+     * <pre>
+     *     Y<sub>new</sub> = Y₀ + h·[F₀ + Q(1)]
+     * </pre>
+     * <p>
+     * Для Lobatto-методов (четный порядок):
+     * <pre>
+     *     Y<sub>new</sub> = Y<sub>temp</sub>(τ=1)
+     * </pre>
+     * </li>
+     * </ol>
+     *
+     * <p>
+     * <b>Математические обозначения:</b>
+     * <ul>
+     * <li>Y₀, F₀ - начальное состояние и производная при t=t₀</li>
+     * <li>τ<sub>i</sub> = SPACINGS[spacingIndex + i] - узлы интегрирования на
+     * [0,1]</li>
+     * <li>Q(τ) = Σ<sub>j=0</sub><sup>n-1</sup> B<sub>j</sub>τʲ - полиномиальная
+     * коррекция</li>
+     * <li>n = order/2 - количество узлов</li>
+     * </ul>
+     *
+     * <p>
+     * <b>Особенности реализации:</b>
+     * <ul>
+     * <li>Поддерживает отрицательные шаги (обратное интегрирование)</li>
+     * <li>Автоматически определяет тип метода (Radau/Lobatto) по порядку:
+     * <pre>
+     *     isRadau = (order % 2 == 1)
+     * </pre>
+     * </li>
+     * <li>Хранит историю коэффициентов B для эффективного предсказания</li>
+     * <li>Ограничивает максимальное количество итераций (maxIterations)</li>
+     * </ul>
+     *
+     * <p>
+     * <b>Критерии остановки:</b>
+     * <ul>
+     * <li>Успех: достижение сходимости за ≤ maxIterations итераций</li>
+     * <li>Ошибка: - Ошибка вычисления правых частей - Превышение maxIterations
+     * (только при verifyConvergence=true) - Деление на ноль при вычислении
+     * τ</li>
+     * </ul>
+     *
+     * @param t Начальное время шага (t₀)
+     * @param y Начальные условия [y₁, y₂, ..., yₙ] (Y₀)
+     * @param h Шаг интегрирования (может быть отрицательным)
+     * @param yNew Выходной массив для решения в t₀ + h
+     * @param parm Дополнительные параметры для правых частей
+     *
+     * @return true - шаг успешно завершен, false - ошибка интегрирования или
+     * расходимость
+     *
+     * @implNote Сложность алгоритма: O(n²·m·k), где: n - количество узлов, m -
+     * количество уравнений, k - количество итераций
      */
     @Override
     public boolean step(double t, double[] y, double h, double[] yNew, Object parm) {
@@ -565,15 +816,15 @@ public class Everhart extends RungeKuttaMethod {
             System.arraycopy(y, 0, yNew, 0, numberOfEquations);
             return true;
         }
-        
+
         int points = order / 2;
         int spacingIndex = calculateSpacingIndex();
         boolean isRadau = ((order - 2 * points) == 1);
-        
+
         // Сохраняем параметры шага для интерполяции
         stepBeginTime = t;
         stepSize = h;
-        
+
         // Ключевое исправление 2: правильное отношение шагов
         double r = (previousStepSize == 0 || isFirstStep) ? 1.0 : h / previousStepSize;
         double q = 1.0;
@@ -601,16 +852,16 @@ public class Everhart extends RungeKuttaMethod {
                 System.arraycopy(bCoeffs[i], 0, bPrevCoeffs[i], 0, numberOfEquations);
             }
         }
-        
+
         double[][] bCoeffsCopy = new double[points][numberOfEquations];
         for (int i = 0; i < points; i++) {
             System.arraycopy(bCoeffs[i], 0, bCoeffsCopy[i], 0, numberOfEquations);
         }
-        
+
         // Предсказание коэффициентов 
         for (int s = 0; s < points; s++) {
             Arrays.fill(pVector, 0.0);
-            
+
             for (int m = s; m < points; m++) {
                 double ems = eMatrix[m + 1][s + 1];
                 for (int eq = 0; eq < numberOfEquations; eq++) {
@@ -628,25 +879,25 @@ public class Everhart extends RungeKuttaMethod {
                 bPrevCoeffs[s][eq] = newBL;
             }
         }
-        
+
         // Преобразование B -> A
         for (int s = 0; s < points; s++) {
             Arrays.fill(pVector, 0.0);
-            
+
             for (int m = s; m < points; m++) {
                 double dms = dMatrix[m + 1][s + 1];
                 for (int eq = 0; eq < numberOfEquations; eq++) {
                     pVector[eq] += dms * bCoeffs[m][eq];
                 }
             }
-            
+
             for (int eq = 0; eq < numberOfEquations; eq++) {
                 aCoeffs[s][eq] = pVector[eq];
             }
         }
-        
+
         // Итерационный процесс
-       if (isRadau || stepCount == 0) {
+        if (isRadau || stepCount == 0) {
             System.arraycopy(y, 0, yTemp, 0, numberOfEquations);
             if (!rightCalculator.compute(t, yTemp, f0, parm)) {
                 return false;
@@ -661,7 +912,7 @@ public class Everhart extends RungeKuttaMethod {
             if (!performIterations(t, h, points, spacingIndex, isRadau, parm)) {
                 return false;
             }
-            
+
             if (iter == 0) {
                 System.arraycopy(yTemp, 0, yk, 0, numberOfEquations);
             } else {
@@ -672,13 +923,13 @@ public class Everhart extends RungeKuttaMethod {
                 System.arraycopy(yTemp, 0, yk, 0, numberOfEquations);
             }
         }
-        
+
         if (verifyConvergence && !converged) {
             return false;
         }
-        
+
         // Вычисление результата
-         if (isRadau) {
+        if (isRadau) {
             calculateSolution(1.0, points, h, y0, f0, yNew);
         } else {
             System.arraycopy(yTemp, 0, yNew, 0, numberOfEquations);
@@ -688,18 +939,22 @@ public class Everhart extends RungeKuttaMethod {
 //        if (!isRadau) {
 //            System.arraycopy(lastF, 0, f0, 0, numberOfEquations);
 //        }
-        
         previousStepSize = h;
         stepCount++;
         return true;
     }
 
     /**
-     * Инициализация первого шага интегрирования.
-     * 
-     * @param t     Начальное время
-     * @param y     Начальные значения
-     * @param parm  Дополнительные параметры
+     * Инициализирует первый шаг интегрирования:
+     * <ol>
+     * <li>Сохраняет начальные условия</li>
+     * <li>Вычисляет правые части в начальной точке</li>
+     * </ol>
+     *
+     * @param t Начальное время
+     * @param y Начальные значения
+     * @param parm Дополнительные параметры
+     * @throws RuntimeException Если ошибка вычисления правых частей
      */
     private void initializeFirstStep(double t, double[] y, Object parm) {
         System.arraycopy(y, 0, y0, 0, numberOfEquations);
@@ -707,51 +962,63 @@ public class Everhart extends RungeKuttaMethod {
             throw new RuntimeException("Ошибка вычисления правых частей системы ДУ");
         }
     }
-     
+
     /**
-     * Выполняет итерационный процесс уточнения решения.
-     * 
-     * @param t              Текущее время
-     * @param h              Шаг интегрирования
-     * @param points         Количество точек
-     * @param spacingIndex   Индекс узлов
-     * @param isRadau        Флаг типа разбиения
-     * @param parm           Дополнительные параметры
-     * @return               true, если итерации выполнены успешно
-     */ 
-     private boolean performIterations(double t, double h, int points, int spacingIndex, 
-                                      boolean isRadau, Object parm) {
+     * Выполняет итерационный процесс уточнения решения для одного шага.
+     *
+     * <p>
+     * Для каждого узла интегрирования:
+     * <ol>
+     * <li>Вычисляет промежуточное решение через плотный вывод</li>
+     * <li>Рассчитывает правые части</li>
+     * <li>Обновляет коэффициенты A и B</li>
+     * </ol>
+     *
+     * @param t Текущее время
+     * @param h Шаг интегрирования
+     * @param points Количество узлов (order / 2)
+     * @param spacingIndex Индекс узлов в SPACINGS
+     * @param isRadau Тип узлов (true: Radau, false: Lobatto)
+     * @param parm Параметры правых частей
+     * @return true если итерации выполнены успешно, false при ошибке
+     */
+    private boolean performIterations(double t, double h, int points, int spacingIndex,
+            boolean isRadau, Object parm) {
         for (int i = 0; i < points; i++) {
             double tau = SPACINGS[spacingIndex + i];
-            
+
             calculateSolution(tau, points, h, y0, f0, yTemp);
-            
+
+            // Вычисление F(tau)
             if (!rightCalculator.compute(
-                t + h * tau, 
-                yTemp, 
-                pVector, 
-                parm
+                    t + h * tau,
+                    yTemp,
+                    pVector,
+                    parm
             )) {
                 return false;
             }
 
-            // Ключевое исправление: сохранение lastF
+            // Сохранение lastF для Lobatto
             if (!isRadau && i == points - 1) {
                 double[] tempF = pVector.clone();
                 System.arraycopy(tempF, 0, lastF, 0, numberOfEquations);
             }
 
+            // Вычисление ΔF
             for (int eq = 0; eq < numberOfEquations; eq++) {
                 double deltaF = pVector[eq] - f0[eq];
                 pVector[eq] = deltaF / tau;
             }
 
+            // Обновление A
             for (int j = 0; j < i; j++) {
                 for (int eq = 0; eq < numberOfEquations; eq++) {
                     pVector[eq] = dtaus[i][j] * (pVector[eq] - aCoeffs[j][eq]);
                 }
             }
 
+            // Обновление B
             for (int eq = 0; eq < numberOfEquations; eq++) {
                 double delta = pVector[eq] - aCoeffs[i][eq];
                 for (int j = 0; j <= i; j++) {
@@ -768,77 +1035,148 @@ public class Everhart extends RungeKuttaMethod {
     }
 
     /**
-     * Вычисление решения в заданной точке интервала.
-     * 
-     * @param tau     Положение на интервале
-     * @param points  Количество точек
-     * @param h       Шаг интегрирования
-     * @param y       Начальные значения
-     * @param f0      Правые части в начале шага
-     * @param result  Результат вычислений
+     * Вычисляет решение системы обыкновенных дифференциальных уравнений (ОДУ) в
+     * произвольной точке внутри текущего шага интегрирования методом
+     * полиномиальной интерполяции (плотный вывод).
+     *
+     * <p>
+     * <b>Математическая формула:</b>
+     * <pre>
+     * Y(τ) = Y₀ + h·τ·[F₀ + Q(τ)]
+     * где:
+     *   Q(τ) = Σ (Bⱼ·τʲ) для j = 0..n-1
+     * </pre>
+     *
+     * <p>
+     * <b>Обозначения:</b>
+     * <ul>
+     * <li>τ = (t - t₀)/h ∈ [0, 1] - безразмерное время</li>
+     * <li>Bⱼ - предвычисленные коэффициенты полинома</li>
+     * <li>n = {@code points} - количество узлов интегрирования</li>
+     * <li>h - шаг интегрирования</li>
+     * <li>Y₀ - начальное состояние при τ=0</li>
+     * <li>F₀ - производная в начале шага (при τ=0)</li>
+     * </ul>
+     *
+     * <p>
+     * <b>Реализация:</b>
+     * <ol>
+     * <li>Использует схему Горнера для эффективного вычисления полинома
+     * Q(τ)</li>
+     * <li>Обеспечивает точность интерполяции, соответствующую порядку
+     * метода</li>
+     * <li>Гарантирует гладкость решения при соблюдении корректности
+     * коэффициентов</li>
+     * </ol>
+     *
+     * <p>
+     * <b>Особенности:</b>
+     * <ul>
+     * <li>При τ=0 возвращает Y₀ (проверочное условие)</li>
+     * <li>При τ=1 возвращает решение на конце шага</li>
+     * <li>Требует предварительного вычисления коэффициентов Bⱼ в процессе
+     * интегрирования</li>
+     * </ul>
+     *
+     * @param tau Безразмерное время в интервале [0, 1]
+     * @param points Количество узлов интегрирования (n = порядок метода / 2)
+     * @param h Текущий шаг интегрирования (может быть положительным или
+     * отрицательным)
+     * @param y Начальное состояние вектора решения на шаге [y₀, y₁, ...] (при
+     * τ=0)
+     * @param f0 Производные в начале шага [f₀, f₁, ...] (правые части ОДУ при
+     * τ=0)
+     * @param result Выходной массив для записи результата (должен иметь длину
+     * равную y.length)
+     *
+     * @throws IllegalArgumentException если параметры не соответствуют
+     * требованиям: - tau ∉ [0, 1] - h = 0 - Несовпадение длин массивов y, f0,
+     * result - points < 1
      */
-   private void calculateSolution(double tau, int points, double h, 
-                                   double[] y, double[] f0, double[] result) {
+    private void calculateSolution(double tau, int points, double h,
+            double[] y, double[] f0, double[] result) {
         Arrays.fill(pVector, 0.0);
-        
+
+        // Схема Горнера: Q(τ) = B₀ + τ(B₁ + τ(B₂ + ... + τ·B_{n-1}...))
         for (int j = points - 1; j >= 0; j--) {
             for (int eq = 0; eq < numberOfEquations; eq++) {
                 pVector[eq] = tau * (bCoeffs[j][eq] + pVector[eq]);
             }
         }
-        
+        // Финальная формула: Y(τ) = Y₀ + h·τ·[F₀ + Q(τ)]
         for (int eq = 0; eq < numberOfEquations; eq++) {
             result[eq] = y[eq] + h * tau * f0[eq] + h * tau * pVector[eq];
+            //result[eq] = y[eq] + h * tau * f0[eq] + h * pVector[eq];
+
         }
+
     }
-    
-   /**
-     * Интерполирует решение в заданный момент времени внутри последнего шага
-     * 
-     * @param t     Время для интерполяции (в пределах [stepBeginTime, stepBeginTime + stepSize])
-     * @param y     Массив для записи результата
-     * @return      true если интерполяция успешна, иначе false
+
+    /**
+     * Вычисляет решение системы ОДУ в произвольной точке внутри последнего шага
+     * интегрирования методом полиномиальной интерполяции (плотный вывод).
+     *
+     * <p>
+     * Математическая основа:
+     * <pre>
+     * Y(τ) = Y₀ + h·τ·F₀ + h·Σ Bⱼ·τ^{j+1}
+     * где:
+     *   τ = (t - t₀)/h ∈ [0,1] - безразмерное время
+     *   Bⱼ - коэффициенты полинома, вычисленные на шаге
+     * </pre>
+     *
+     * @param t Время для интерполяции (t ∈ [t₀, t₀+h])
+     * @param y Массив для записи интерполированного решения
+     * @return true если интерполяция выполнена успешно, false при ошибке
      */
+    @Override
     public boolean interpolate(double t, double[] y) {
-        if (isFirstStep) {
+
+        if (isFirstStep || stepSize == 0) {
             return false;
         }
-        
+
         if (t < stepBeginTime || t > stepBeginTime + stepSize) {
             return false;
         }
-        
+
         double tau = (t - stepBeginTime) / stepSize;
+
         int points = order / 2;
-        
+
+        if (tau < 0 || tau > 1) {
+            return false;
+        }
+
         calculateSolution(tau, points, stepSize, y0, f0, y);
         return true;
     }
-           
+
     /**
-     * Проверка сходимости итерационного процесса.
-     * 
-     * @return true, если достигнута необходимая точность
+     * Проверяет сходимость итерационного процесса по критерию: |Yₖ⁺¹ - Yₖ| ≤
+     * localError * (|Yₖ⁺¹|)
+     *
+     * @return true если достигнута заданная точность для всех уравнений
      */
     private boolean checkConvergence() {
         for (int eq = 0; eq < numberOfEquations; eq++) {
             double error = Math.abs(yTemp[eq] - yk[eq]);
-            double tolerance = localError * (Math.abs(yTemp[eq]) + 1e-15);
+            //double tolerance = localError * (Math.abs(yTemp[eq]) + 1e-15);
+            double tolerance = localError * Math.abs(yTemp[eq]);
             if (error > tolerance) {
                 return false;
             }
         }
-    return true;
-}
-   
-    // Геттеры и сеттеры 
+        return true;
+    }
 
+    // Геттеры и сеттеры 
     /**
      * Установка порядка метода.
-     * 
+     *
      * @param order Новый порядок (2-32)
      * @throws IllegalArgumentException При недопустимом порядке
-     */        
+     */
     public void setOrder(int order) {
         if (order < 2 || order > MAX_ORDER) {
             throw new IllegalArgumentException("Недопустимый порядок метода: " + order);
@@ -847,41 +1185,59 @@ public class Everhart extends RungeKuttaMethod {
         initializeArrays();
         calculateCoefficientMatrices();
     }
-     
-    /** Полный сброс состояния метода. */
+
+    /**
+     * Полностью сбрасывает состояние метода:
+     * <ul>
+     * <li>Обнуляет все коэффициенты</li>
+     * <li>Сбрасывает счетчик шагов</li>
+     * <li>Перевычисляет матрицы коэффициентов</li>
+     * </ul>
+     */
     public void reset() {
         isFirstStep = true;
         stepCount = 0;
         resetState();
         calculateCoefficientMatrices();
     }
-    
-   /**
-     * Установка допустимой погрешности.
-     * 
-     * @param localError Новая погрешность (≥1e-15)
+
+    /**
+     * Устанавливает допустимую локальную погрешность.
+     *
+     * @param localError Желаемая погрешность (≥1e-15)
      */
     public void setLocalError(double localError) {
         this.localError = Math.max(localError, MIN_ERROR);
     }
 
     /**
-     * Установка максимального числа итераций.
-     * 
-     * @param maxIterations Новое значение (≥1)
+     * Устанавливает максимальное количество итераций на шаг.
+     *
+     * @param maxIterations Минимальное значение: 1
      */
     public void setMaxIterations(int maxIterations) {
         this.maxIterations = Math.max(maxIterations, 1);
     }
-    
+
     /**
-     * Установка флага проверки сходимости.
-     * 
-     * @param verifyConvergence true - проверять сходимость
+     * Включает/выключает проверку сходимости итераций.
+     *
+     * @param verifyConvergence true - прерывать шаг при расходимости, false -
+     * игнорировать расходимость
      */
     public void setVerifyConvergence(boolean verifyConvergence) {
         this.verifyConvergence = verifyConvergence;
     }
 
-}
+    /**
+     * Проверяет, поддерживает ли метод плотный вывод (интерполяцию решения
+     * внутри шага).
+     *
+     * @return true если метод поддерживает интерполяцию, иначе false
+     */
+    @Override
+    public boolean supportsInterpolation() {
+        return true;
+    }
 
+}

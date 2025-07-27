@@ -14,17 +14,25 @@ public class MethodWrapper {
      * Фабричная функция для создания экземпляра метода.
      */
     private final java.util.function.Function<RightCalculator, RungeKuttaMethod> factory;
+    
+    /**
+     * Поддерживает ли метод интерполяцию
+     */
+    private final boolean supportsInterpolation;
 
     /**
      * Конструктор обертки метода.
      *
      * @param name название метода
      * @param factory фабричная функция для создания экземпляра метода
+     * @param supportsInterpolation поддерживает ли метод интерполяцию
      */
     public MethodWrapper(String name,
-                         java.util.function.Function<RightCalculator, RungeKuttaMethod> factory) {
+                         java.util.function.Function<RightCalculator, RungeKuttaMethod> factory,
+                         boolean supportsInterpolation) {
         this.name = name;
         this.factory = factory;
+        this.supportsInterpolation = supportsInterpolation;
     }
 
     /**
@@ -45,5 +53,13 @@ public class MethodWrapper {
     @Override
     public String toString() {
         return name;
+    }
+    
+    /**
+     * Поддерживает ли метод интерполяцию
+     * @return true если поддерживает
+     */
+    public boolean supportsInterpolation() {
+        return supportsInterpolation;
     }
 }
