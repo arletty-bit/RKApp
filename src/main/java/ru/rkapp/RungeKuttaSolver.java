@@ -33,6 +33,8 @@ public class RungeKuttaSolver {
 //            return solveAdaptiveADP853((AdaptiveDormandPrince853Integrator) method,
 //                    t0, y0, h, steps, parm);
 //        }
+
+        method.initialize(); // Инициализация состояния метода
         // Список для хранения результатов
         List<double[]> results = new ArrayList<>();
         // Добавление начальных условий
@@ -73,6 +75,7 @@ public static List<double[]> solveWithInterpolation(RungeKuttaMethod method,
 
     for (int i = 0; i < steps; i++) {
         double[] nextY = new double[y0.length];
+        
 
         // Шаг интегрирования
         if (!method.step(t, currentY, h, nextY, parm)) {
@@ -98,6 +101,49 @@ public static List<double[]> solveWithInterpolation(RungeKuttaMethod method,
     }
     return results;
 }
+
+
+//public static List<double[]> solveWithInterpolation(RungeKuttaMethod method,
+//        double t0, double[] y0, double h, int steps,
+//        int interpolationPoints, Object parm) {
+//
+//    List<double[]> results = new ArrayList<>();
+//    results.add(y0.clone());
+//
+//    double[] currentY = y0.clone();
+//    double t = t0;
+//
+//    for (int i = 0; i < steps; i++) {
+//        double[] nextY = new double[y0.length];
+//        
+//            double[] currentState = currentY.clone(); 
+//
+//
+//        // Шаг интегрирования
+//        if (!method.step(t, currentState, h, nextY, parm)) {
+//            throw new RuntimeException("Ошибка на шаге " + i);
+//        }
+//
+//        // Интерполяция внутри шага [t, t+h]
+//        for (int j = 1; j <= interpolationPoints; j++) {
+//            double interpTime = t + (j * h) / (interpolationPoints + 1.0);
+//            double[] interpY = new double[y0.length];
+//
+//            if (method.interpolate(interpTime, interpY)) {
+//                results.add(interpY.clone());
+//            }
+//        }
+//
+//        // Фиксация результата шага (конец интервала)
+//        results.add(currentState);
+//        
+//        // Обновление состояния
+//        currentY = nextY;
+//        t += h;
+//    }
+//    return results;
+//}
+
 
 //    
 //    private static List<double[]> solveAdaptiveADP853(AdaptiveDormandPrince853Integrator method,

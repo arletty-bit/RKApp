@@ -17,6 +17,9 @@ public class DormandPrince853Integrator extends RungeKuttaMethod {
     private static final int STAGES = 13;
     private double[] lastDerivative; // Для реализации FSAL
     private boolean firstStep = true;
+            @Override
+    public void initialize() {
+    }
 
     // Коэффициенты c
     private static final double[] C = {

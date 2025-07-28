@@ -544,6 +544,13 @@ public class Everhart extends RungeKuttaMethod {
      */
     private long stepCount = 0;
 
+    @Override
+    public void initialize() {
+        resetState();
+        calculateStirlingNumbers();
+        calculateDTaus();
+    }
+
     /**
      * Конструктор метода Эверхарта.
      *
@@ -571,26 +578,20 @@ public class Everhart extends RungeKuttaMethod {
      * при изменении порядка метода.
      */
     private void initializeArrays() {
-
-        int points = order / 2;  // Количество точек разбиения
-
-        // Фиксированный размер матриц 17x17 для maxOrder=32
         int matrixSize = MAX_ORDER / 2 + 1;
-        
+
         cMatrix = new double[matrixSize][matrixSize];
         dMatrix = new double[matrixSize][matrixSize];
         eMatrix = new double[matrixSize][matrixSize];
-        dtaus = new double[points][]; //new double[matrixSize][matrixSize];
-        for (int i = 0; i < points; i++) {
-            dtaus[i] = new double[i]; // Для каждого i создаем i элементов
+        dtaus = new double[MAX_ORDER / 2][];
+        for (int i = 0; i < MAX_ORDER / 2; i++) {
+            dtaus[i] = new double[i];
         }
 
-        // Инициализация коэффициентов
-        aCoeffs = new double[points][numberOfEquations];
-        bCoeffs = new double[points][numberOfEquations];
-        bPrevCoeffs = new double[points][numberOfEquations];
+        aCoeffs = new double[MAX_ORDER / 2][numberOfEquations];
+        bCoeffs = new double[MAX_ORDER / 2][numberOfEquations];
+        bPrevCoeffs = new double[MAX_ORDER / 2][numberOfEquations];
 
-        // Инициализация рабочих векторов
         f0 = new double[numberOfEquations];
         y0 = new double[numberOfEquations];
         yTemp = new double[numberOfEquations];
@@ -598,7 +599,7 @@ public class Everhart extends RungeKuttaMethod {
         yk = new double[numberOfEquations];
         lastF = new double[numberOfEquations];
 
-        resetState();  // Сброс состояния
+        resetState();
     }
 
     /**
@@ -607,11 +608,16 @@ public class Everhart extends RungeKuttaMethod {
      * явном сбросе состояния.
      */
     private void resetState() {
-        int points = order / 2;
-        for (int i = 0; i < points; i++) {
-            Arrays.fill(aCoeffs[i], 0.0);
-            Arrays.fill(bCoeffs[i], 0.0);
-            Arrays.fill(bPrevCoeffs[i], 0.0);
+        for (int i = 0; i < MAX_ORDER / 2; i++) {
+            if (aCoeffs[i] != null) {
+                Arrays.fill(aCoeffs[i], 0.0);
+            }
+            if (bCoeffs[i] != null) {
+                Arrays.fill(bCoeffs[i], 0.0);
+            }
+            if (bPrevCoeffs[i] != null) {
+                Arrays.fill(bPrevCoeffs[i], 0.0);
+            }
         }
         Arrays.fill(f0, 0.0);
         Arrays.fill(y0, 0.0);
@@ -619,6 +625,11 @@ public class Everhart extends RungeKuttaMethod {
         Arrays.fill(pVector, 0.0);
         Arrays.fill(yk, 0.0);
         Arrays.fill(lastF, 0.0);
+
+        isFirstStep = true;
+        stepCount = 0;
+        previousStepSize = 0.0;
+        stepBeginTime = 0.0;
     }
 
     /**
@@ -706,23 +717,23 @@ public class Everhart extends RungeKuttaMethod {
         int spacingIndex = calculateSpacingIndex();
 
         // Инициализация матриц
-    for (int i = 0; i <= points; i++) {
-        for (int j = 0; j <= points; j++) {
-            if (j == 0) {
-                cMatrix[i][j] = (i == 0) ? 1.0 : 0.0; // c[0,0]=1, остальные 0
-                dMatrix[i][j] = (i == 0) ? 1.0 : 0.0; // d[0,0]=1, остальные 0
-                eMatrix[i][j] = 1.0; // e[i,0]=1
-            } else if (i == j) { // Диагональ = 1
-                cMatrix[i][j] = 1.0;
-                dMatrix[i][j] = 1.0;
-                eMatrix[i][j] = 1.0;
-            } else { // Остальные элементы 0
-                cMatrix[i][j] = 0.0;
-                dMatrix[i][j] = 0.0;
-                eMatrix[i][j] = 0.0;
+        for (int i = 0; i <= points; i++) {
+            for (int j = 0; j <= points; j++) {
+                if (j == 0) {
+                    cMatrix[i][j] = (i == 0) ? 1.0 : 0.0; // c[0,0]=1, остальные 0
+                    dMatrix[i][j] = (i == 0) ? 1.0 : 0.0; // d[0,0]=1, остальные 0
+                    eMatrix[i][j] = 1.0; // e[i,0]=1
+                } else if (i == j) { // Диагональ = 1
+                    cMatrix[i][j] = 1.0;
+                    dMatrix[i][j] = 1.0;
+                    eMatrix[i][j] = 1.0;
+                } else { // Остальные элементы 0
+                    cMatrix[i][j] = 0.0;
+                    dMatrix[i][j] = 0.0;
+                    eMatrix[i][j] = 0.0;
+                }
             }
         }
-    }
 
         // Вычисление коэффициентов
         for (int j = 0; j < points; j++) {
@@ -886,93 +897,68 @@ public class Everhart extends RungeKuttaMethod {
      */
     @Override
     public boolean step(double t, double[] y, double h, double[] yNew, Object parm) {
+        if (y.length != numberOfEquations) {
+            return false;
+        }
+
+        if (yNew == null) {
+            yNew = new double[numberOfEquations];
+        } else if (yNew.length != numberOfEquations) {
+            yNew = new double[numberOfEquations];
+        }
+
         if (h == 0.0) {
             System.arraycopy(y, 0, yNew, 0, numberOfEquations);
             return true;
         }
 
-        int points = order / 2;
         int spacingIndex = calculateSpacingIndex();
-        boolean isRadau = ((order - 2 * points) == 1);
+        int numberOfPoints = order / 2;
+        boolean isRadau = ((order - 2 * numberOfPoints) == 1);
 
-        // Сохраняем параметры шага для интерполяции
-        stepBeginTime = t;
-        stepSize = h;
+        double R = (isFirstStep || previousStepSize == 0) ? 1.0 : h / previousStepSize;
+        isFirstStep = false;
 
-        // Ключевое исправление 2: правильное отношение шагов
-        double r = (previousStepSize == 0 || isFirstStep) ? 1.0 : h / previousStepSize;
-        double q = 1.0;
-
-        // Инициализация состояния шага
-        if (isFirstStep) {
-            initializeFirstStep(t, y, parm);
-            isFirstStep = false;
-        } else {
-            System.arraycopy(y, 0, y0, 0, numberOfEquations);
-            if (isRadau) {
-                if (!rightCalculator.compute(t, y0, f0, parm)) {
-                    return false;
-                }
-            } else {
-                // Вычислить и сохранить lastF для Лобатто
-//                rightCalculator.compute(t + h, yNew, lastF, parm);
-                System.arraycopy(lastF, 0, f0, 0, numberOfEquations);
-
-            }
-
-        }
-
-        // Копирование коэффициентов для безопасного использования
         if (stepCount < 2) {
-            for (int i = 0; i < points; i++) {
+            for (int i = 0; i < numberOfPoints; i++) {
                 System.arraycopy(bCoeffs[i], 0, bPrevCoeffs[i], 0, numberOfEquations);
             }
         }
 
-        double[][] bCoeffsCopy = new double[points][numberOfEquations];
-        for (int i = 0; i < points; i++) {
-            System.arraycopy(bCoeffs[i], 0, bCoeffsCopy[i], 0, numberOfEquations);
-        }
-
-        // Предсказание коэффициентов 
-        for (int s = 0; s < points; s++) {
+        double Q = 1.0;
+        for (int s = 0; s < numberOfPoints; s++) {
             Arrays.fill(pVector, 0.0);
 
-            for (int m = s; m < points; m++) {
+            for (int m = s; m < numberOfPoints; m++) {
                 double ems = eMatrix[m + 1][s + 1];
                 for (int eq = 0; eq < numberOfEquations; eq++) {
-                    pVector[eq] += ems * bCoeffsCopy[m][eq];
+                    pVector[eq] += ems * bCoeffs[m][eq];
                 }
             }
 
-            q *= r;
+            Q *= R;
 
             for (int eq = 0; eq < numberOfEquations; eq++) {
                 double oldBL = bPrevCoeffs[s][eq];
                 bCoeffs[s][eq] -= oldBL;
-                double newBL = q * pVector[eq] / (s + 2.0);
-                bCoeffs[s][eq] += newBL;
+                double newBL = Q * pVector[eq] / (s + 2.0);
                 bPrevCoeffs[s][eq] = newBL;
+                bCoeffs[s][eq] += newBL;
             }
         }
 
-        // Преобразование B -> A
-        for (int s = 0; s < points; s++) {
+        for (int s = 0; s < numberOfPoints; s++) {
             Arrays.fill(pVector, 0.0);
 
-            for (int m = s; m < points; m++) {
+            for (int m = s; m < numberOfPoints; m++) {
                 double dms = dMatrix[m + 1][s + 1];
                 for (int eq = 0; eq < numberOfEquations; eq++) {
                     pVector[eq] += dms * bCoeffs[m][eq];
                 }
             }
-
-            for (int eq = 0; eq < numberOfEquations; eq++) {
-                aCoeffs[s][eq] = pVector[eq];
-            }
+            System.arraycopy(pVector, 0, aCoeffs[s], 0, numberOfEquations);
         }
 
-        // Итерационный процесс
         if (isRadau || stepCount == 0) {
             System.arraycopy(y, 0, yTemp, 0, numberOfEquations);
             if (!rightCalculator.compute(t, yTemp, f0, parm)) {
@@ -983,19 +969,50 @@ public class Everhart extends RungeKuttaMethod {
         }
 
         boolean converged = false;
-        int iter;
-        for (iter = 0; iter < maxIterations; iter++) {
-            if (!performIterations(t, h, points, spacingIndex, isRadau, parm)) {
-                return false;
+        int iteration;
+        for (iteration = 1; iteration <= maxIterations; iteration++) {
+            for (int i = 0; i < numberOfPoints; i++) {
+                double tau = SPACINGS[spacingIndex + i];
+                calculateSolution(tau, numberOfPoints, h, y, f0, yTemp);
+
+                if (!rightCalculator.compute(t + h * tau, yTemp, lastF, parm)) {
+                    return false;
+                }
+
+                for (int eq = 0; eq < numberOfEquations; eq++) {
+                    pVector[eq] = (lastF[eq] - f0[eq]) / tau;
+                }
+
+                for (int j = 0; j < i; j++) {
+                    double dtausij = dtaus[i][j];
+                    for (int eq = 0; eq < numberOfEquations; eq++) {
+                        pVector[eq] = dtausij * (pVector[eq] - aCoeffs[j][eq]);
+                    }
+                }
+
+                for (int j = 0; j <= i; j++) {
+                    double cij = cMatrix[i + 1][j + 1];
+                    for (int eq = 0; eq < numberOfEquations; eq++) {
+                        bCoeffs[j][eq] += cij * (pVector[eq] - aCoeffs[i][eq]);
+                    }
+                }
+
+                System.arraycopy(pVector, 0, aCoeffs[i], 0, numberOfEquations);
             }
 
-            if (iter == 0) {
-                System.arraycopy(yTemp, 0, yk, 0, numberOfEquations);
-            } else {
-                if (checkConvergence()) {
-                    converged = true;
+            boolean isConverged = true;
+            for (int eq = 0; eq < numberOfEquations; eq++) {
+                if (Math.abs(yTemp[eq] - yk[eq]) > Math.abs(localError * yTemp[eq])) {
+                    isConverged = false;
                     break;
                 }
+            }
+
+            if (isConverged) {
+                LOG.debug("Converged in {} iterations", iteration);
+                converged = true;
+                break;
+            } else if (iteration < maxIterations) {
                 System.arraycopy(yTemp, 0, yk, 0, numberOfEquations);
             }
         }
@@ -1004,19 +1021,17 @@ public class Everhart extends RungeKuttaMethod {
             return false;
         }
 
-        // Вычисление результата
         if (isRadau) {
-            calculateSolution(1.0, points, h, y0, f0, yNew);
+            calculateSolution(1.0, numberOfPoints, h, y, f0, yNew);
         } else {
             System.arraycopy(yTemp, 0, yNew, 0, numberOfEquations);
         }
 
-        // Сохранение состояния
-//        if (!isRadau) {
-//            System.arraycopy(lastF, 0, f0, 0, numberOfEquations);
-//        }
+        stepBeginTime = t;
         previousStepSize = h;
+        System.arraycopy(y, 0, y0, 0, numberOfEquations);
         stepCount++;
+
         return true;
     }
 
@@ -1065,7 +1080,6 @@ public class Everhart extends RungeKuttaMethod {
 
             calculateSolution(tau, points, h, y0, f0, yTemp);
 
-            // Вычисление F(tau)
             if (!rightCalculator.compute(
                     t + h * tau,
                     yTemp,
@@ -1075,28 +1089,21 @@ public class Everhart extends RungeKuttaMethod {
                 return false;
             }
 
-            // Сохранение lastF для Lobatto
             if (!isRadau && i == points - 1) {
-                double[] tempF = pVector.clone();
-//                System.arraycopy(tempF, 0, lastF, 0, numberOfEquations); // !!!!
                 System.arraycopy(pVector, 0, lastF, 0, numberOfEquations);
-
             }
 
-            // Вычисление ΔF
             for (int eq = 0; eq < numberOfEquations; eq++) {
                 double deltaF = pVector[eq] - f0[eq];
                 pVector[eq] = deltaF / tau;
             }
 
-            // Обновление A
             for (int j = 0; j < i; j++) {
                 for (int eq = 0; eq < numberOfEquations; eq++) {
                     pVector[eq] = dtaus[i][j] * (pVector[eq] - aCoeffs[j][eq]);
                 }
             }
 
-            // Обновление B
             for (int eq = 0; eq < numberOfEquations; eq++) {
                 double delta = pVector[eq] - aCoeffs[i][eq];
                 for (int j = 0; j <= i; j++) {
@@ -1174,21 +1181,14 @@ public class Everhart extends RungeKuttaMethod {
     private void calculateSolution(double tau, int points, double h,
             double[] y, double[] f0, double[] result) {
         Arrays.fill(pVector, 0.0);
-
-        // Схема Горнера: Q(τ) = B₀ + τ(B₁ + τ(B₂ + ... + τ·B_{n-1}...))
         for (int j = points - 1; j >= 0; j--) {
             for (int eq = 0; eq < numberOfEquations; eq++) {
                 pVector[eq] = tau * (bCoeffs[j][eq] + pVector[eq]);
             }
         }
-        // Финальная формула: Y(τ) = Y₀ + h·τ·[F₀ + Q(τ)]
         for (int eq = 0; eq < numberOfEquations; eq++) {
-            //result[eq] = y[eq] + h * tau * f0[eq] + h * tau * pVector[eq];
-            //result[eq] = y[eq] + h * tau * f0[eq] + h * pVector[eq];
             result[eq] = y[eq] + h * tau * (f0[eq] + pVector[eq]);
-
         }
-
     }
 
     /**
@@ -1211,23 +1211,23 @@ public class Everhart extends RungeKuttaMethod {
     @Override
     public boolean interpolate(double t, double[] y) {
 
-        if (isFirstStep || stepSize == 0) {
+        if (isFirstStep || previousStepSize == 0) {
             return false;
         }
 
-        if (t < stepBeginTime || t > stepBeginTime + stepSize) {
-            return false;
-        }
+//        if (t < stepBeginTime || t > stepBeginTime + stepSize) {
+//            return false;
+//        }
 
-        double tau = (t - stepBeginTime) / stepSize;
+        double tau = (t - stepBeginTime) / previousStepSize;
 
         int points = order / 2;
 
-        if (tau < 0 || tau > 1) {
-            return false;
-        }
+//        if (tau < 0 || tau > 1) {
+//            return false;
+//        }
 
-        calculateSolution(tau, points, stepSize, y0, f0, y);
+        calculateSolution(tau, points, previousStepSize, y0, f0, y);
         return true;
     }
 
@@ -1261,6 +1261,7 @@ public class Everhart extends RungeKuttaMethod {
             throw new IllegalArgumentException("Недопустимый порядок метода: " + order);
         }
         this.order = order;
+        initialize();
         initializeArrays();
         calculateStirlingNumbers(); // Сначала вычисляем матрицы Стирлинга
         calculateDTaus();           // Затем вычисляем обратные разности    

@@ -117,4 +117,9 @@ public abstract class ButcherTableMethod extends RungeKuttaMethod {
 
         return true;
     }
+    
+       @Override
+    public void initialize() {
+        // Явные методы не требуют специальной инициализации
+    } 
 }

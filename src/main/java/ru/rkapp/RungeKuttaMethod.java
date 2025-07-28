@@ -42,6 +42,8 @@ public abstract class RungeKuttaMethod {
         public boolean supportsInterpolation() {
         return false;
     }
+        
+            public abstract void initialize();
 }
 
 
