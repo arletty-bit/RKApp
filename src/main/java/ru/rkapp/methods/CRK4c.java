@@ -10,7 +10,7 @@ import ru.rkapp.RightCalculator;
  * "Ralston's Fourth-Order Method". Характеризуется минимизацией ошибки усечения
  * за счет специфического подбора весовых коэффициентов.</p>
  * 
- * <p>Коэффициенты метода:
+ * Коэффициенты метода:
  * <pre>
  *   c = [0.5, 0.5, 1.0]
  *   b = [1/6, (2-√2)/6, (2+√2)/6, 1/6]
@@ -24,7 +24,7 @@ import ru.rkapp.RightCalculator;
  *   ]
  * </pre>
  * 
- * <p>Структура матрицы Бутчера:
+ * Структура матрицы Бутчера:
  * <pre>
  *   0   |
  *   0.5 | 0.5
@@ -33,7 +33,7 @@ import ru.rkapp.RightCalculator;
  *   ----|-------------------------------
  *       | 1/6  (2-√2)/6  (2+√2)/6  1/6
  * </pre>
- * </p>
+ * 
  */
 public class CRK4c extends ButcherTableMethod {
     private static final double SQRT2 = Math.sqrt(2.0);

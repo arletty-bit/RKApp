@@ -783,7 +783,6 @@ public class Everhart extends RungeKuttaMethod {
     /**
      * Выполняет один шаг интегрирования методом Эверхарта для систем ОДУ.
      *
-     * <p>
      * <ul>
      * <li>Использует неявный метод Гаусса-Радо (нечетные порядки) или
      * Гаусса-Лобатто (четные порядки)</li>
@@ -836,7 +835,7 @@ public class Everhart extends RungeKuttaMethod {
      * <li>Коррекция коэффициентов: \[ \Delta\mathbf{f}_i = \frac{\mathbf{f}_i -
      * \mathbf{f}_0}{\tau_i} \] \[ \mathbf{A}_j^{\text{new}} =
      * \mathbf{A}_j^{\text{old}} + \frac{1}{\tau_i - \tau_j} (\Delta\mathbf{f}_i
-     * - \mathbf{A}_j^{\text{old}}) \quad (j < i) \] \[
+     * - \mathbf{A}_j^{\text{old}}) \quad (j &lt; i) \] \[
      * \mathbf{B}_j^{\text{new}} = \mathbf{B}_j^{\text{old}} + C_{i+1,j+1}
      * (\mathbf{A}_i^{\text{new}} - \mathbf{A}_i^{\text{old}}) \quad (j \leq i)
      * \] </li> </ol>
@@ -845,7 +844,7 @@ public class Everhart extends RungeKuttaMethod {
      * <li><b>Проверка сходимости:
      * </b>
      * \[ \max_k \left| \mathbf{y}_{\text{temp}}^{(iter)}[k] -
-     * \mathbf{y}_{\text{temp}}^{(iter-1)}[k] \right| <
+     * \mathbf{y}_{\text{temp}}^{(iter-1)}[k] \right| &lt;
      * \varepsilon_{\text{local}} \cdot \left( 1 + \left|
      * \mathbf{y}_{\text{temp}}[k] \right| \right) \] <ul>
      * <li>\(\varepsilon_{\text{local}}\) - допустимая локальная
@@ -881,7 +880,7 @@ public class Everhart extends RungeKuttaMethod {
      * \(R\))</li>
      * <li>Использование истории расчетов (bPrevCoeffs) для ускорения
      * сходимости</li>
-     * <li>Поддержка обратного интегрирования (\(h < 0\))</li>
+     * <li>Поддержка обратного интегрирования (\(h &lt; 0\))</li>
      * <li>Сложность: \(O(n^2 \cdot m \cdot k)\), где:
      * <ul>
      * <li>\(n\) - количество узлов (order/2)</li>
@@ -900,7 +899,7 @@ public class Everhart extends RungeKuttaMethod {
      * @return true - успешное выполнение шага, false - ошибка (некорректные
      * данные, расходимость, ошибка вычисления правых частей)
      *
-     * @implNote Требует предварительной инициализации матриц C, D, E и dtaus
+     * Требует предварительной инициализации матриц C, D, E и dtaus
      */
     @Override
     public boolean step(double t, double[] y, double h, double[] yNew, Object parm) {

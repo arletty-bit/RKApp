@@ -52,10 +52,14 @@ public class Differentiation {
      * @see #DEFAULT_H_COEFF
      * 
      * Пример использования:
-     * <pre>
-     * double result = derivative(x -> x*x, 2.0); 
-     * // Возвращает ~4.0 (производная x^2 в x=2)
-     * </pre>
+    * <pre>{@code 
+    *   double result = derivative(x -> x*x, 2.0);
+    * }</pre>
+
+    * <pre>{@code 
+    *   List<Double> points = List.of(0.0, 1.0, 2.0);
+    *   List<Double> derivatives = derivativePoints(x -> x*x, points); 
+    * }</pre>
      */
     public static double derivative(Function<Double, Double> func, double x) {
         double h = (Math.abs(x) + 1) * DEFAULT_H_COEFF;
@@ -75,12 +79,6 @@ public class Differentiation {
      * 
      * @throws NullPointerException если func == null или xValues == null
      * 
-     * Пример использования:
-     * <pre>
-     * List<Double> points = List.of(0.0, 1.0, 2.0);
-     * List<Double> derivatives = derivativePoints(x -> x*x, points); 
-     * // Возвращает [0.0, ~2.0, ~4.0]
-     * </pre>
      */
     public static List<Double> derivativePoints(
         Function<Double, Double> func, 

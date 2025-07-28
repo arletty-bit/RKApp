@@ -6,7 +6,7 @@ import ru.rkapp.RightCalculator;
  * Явный метод Эйлера (Explicit Euler Method) - метод первого порядка.
  * 
  * <p>Формула интегрирования:
- * <pre>y<sub>n+1</sub> = y<sub>n</sub> + h · f(t<sub>n</sub>, y<sub>n</sub>)</pre>
+ * <pre>y_{n+1} = y_n + h · f(t_n, y_n)</pre>
  * 
  * <p>Параметры таблицы Бутчера:
  * <ul>
