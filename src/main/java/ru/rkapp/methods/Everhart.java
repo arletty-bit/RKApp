@@ -561,7 +561,8 @@ public class Everhart extends RungeKuttaMethod {
         this.order = order;
         this.numberOfEquations = numberOfEquations;
         initializeArrays();
-        calculateCoefficientMatrices();
+        calculateStirlingNumbers(); // Сначала вычисляем матрицы Стирлинга
+        calculateDTaus();           // Затем вычисляем обратные разности
     }
 
     /**
@@ -573,11 +574,16 @@ public class Everhart extends RungeKuttaMethod {
 
         int points = order / 2;  // Количество точек разбиения
 
-        // Инициализация матриц преобразования
-        cMatrix = new double[points + 1][points + 1];
-        dMatrix = new double[points + 1][points + 1];
-        eMatrix = new double[points + 1][points + 1];
-        dtaus = new double[points][points];
+        // Фиксированный размер матриц 17x17 для maxOrder=32
+        int matrixSize = MAX_ORDER / 2 + 1;
+        
+        cMatrix = new double[matrixSize][matrixSize];
+        dMatrix = new double[matrixSize][matrixSize];
+        eMatrix = new double[matrixSize][matrixSize];
+        dtaus = new double[points][]; //new double[matrixSize][matrixSize];
+        for (int i = 0; i < points; i++) {
+            dtaus[i] = new double[i]; // Для каждого i создаем i элементов
+        }
 
         // Инициализация коэффициентов
         aCoeffs = new double[points][numberOfEquations];
@@ -695,28 +701,28 @@ public class Everhart extends RungeKuttaMethod {
      * @implNote Формулы основаны на работе: Everhart E. (1985) "An Efficient
      * Integrator that Uses Gauss-Radau Spacings"
      */
-    private void calculateCoefficientMatrices() {
+    private void calculateStirlingNumbers() {
         int points = order / 2;
         int spacingIndex = calculateSpacingIndex();
 
         // Инициализация матриц
-        for (int i = 0; i <= points; i++) {
-            for (int j = 0; j <= points; j++) {
-                if (j == 0) {
-                    cMatrix[i][j] = 0.0;
-                    dMatrix[i][j] = 0.0;
-                    eMatrix[i][j] = 1.0;
-                } else if (i == j) {
-                    cMatrix[i][j] = 1.0;
-                    dMatrix[i][j] = 1.0;
-                    eMatrix[i][j] = 1.0;
-                } else {
-                    cMatrix[i][j] = 0.0;
-                    dMatrix[i][j] = 0.0;
-                    eMatrix[i][j] = 0.0;
-                }
+    for (int i = 0; i <= points; i++) {
+        for (int j = 0; j <= points; j++) {
+            if (j == 0) {
+                cMatrix[i][j] = (i == 0) ? 1.0 : 0.0; // c[0,0]=1, остальные 0
+                dMatrix[i][j] = (i == 0) ? 1.0 : 0.0; // d[0,0]=1, остальные 0
+                eMatrix[i][j] = 1.0; // e[i,0]=1
+            } else if (i == j) { // Диагональ = 1
+                cMatrix[i][j] = 1.0;
+                dMatrix[i][j] = 1.0;
+                eMatrix[i][j] = 1.0;
+            } else { // Остальные элементы 0
+                cMatrix[i][j] = 0.0;
+                dMatrix[i][j] = 0.0;
+                eMatrix[i][j] = 0.0;
             }
         }
+    }
 
         // Вычисление коэффициентов
         for (int j = 0; j < points; j++) {
@@ -726,6 +732,7 @@ public class Everhart extends RungeKuttaMethod {
                 eMatrix[i + 1][j + 1] = eMatrix[i][j] + eMatrix[i][j + 1];
             }
         }
+
         // Нормализация
         for (int i = 1; i <= points; i++) {
             for (int j = 1; j <= points; j++) {
@@ -734,6 +741,11 @@ public class Everhart extends RungeKuttaMethod {
                 eMatrix[i][j] *= (i + 1);
             }
         }
+    }
+
+    private void calculateDTaus() {
+        int points = order / 2;
+        int spacingIndex = calculateSpacingIndex();
 
         // Обратные разности
         for (int i = 0; i < points; i++) {
@@ -903,7 +915,9 @@ public class Everhart extends RungeKuttaMethod {
                 }
             } else {
                 // Вычислить и сохранить lastF для Лобатто
-                rightCalculator.compute(t + h, yNew, lastF, parm);
+//                rightCalculator.compute(t + h, yNew, lastF, parm);
+                System.arraycopy(lastF, 0, f0, 0, numberOfEquations);
+
             }
 
         }
@@ -1064,7 +1078,9 @@ public class Everhart extends RungeKuttaMethod {
             // Сохранение lastF для Lobatto
             if (!isRadau && i == points - 1) {
                 double[] tempF = pVector.clone();
-                System.arraycopy(tempF, 0, lastF, 0, numberOfEquations);
+//                System.arraycopy(tempF, 0, lastF, 0, numberOfEquations); // !!!!
+                System.arraycopy(pVector, 0, lastF, 0, numberOfEquations);
+
             }
 
             // Вычисление ΔF
@@ -1167,8 +1183,9 @@ public class Everhart extends RungeKuttaMethod {
         }
         // Финальная формула: Y(τ) = Y₀ + h·τ·[F₀ + Q(τ)]
         for (int eq = 0; eq < numberOfEquations; eq++) {
-            result[eq] = y[eq] + h * tau * f0[eq] + h * tau * pVector[eq];
+            //result[eq] = y[eq] + h * tau * f0[eq] + h * tau * pVector[eq];
             //result[eq] = y[eq] + h * tau * f0[eq] + h * pVector[eq];
+            result[eq] = y[eq] + h * tau * (f0[eq] + pVector[eq]);
 
         }
 
@@ -1245,7 +1262,8 @@ public class Everhart extends RungeKuttaMethod {
         }
         this.order = order;
         initializeArrays();
-        calculateCoefficientMatrices();
+        calculateStirlingNumbers(); // Сначала вычисляем матрицы Стирлинга
+        calculateDTaus();           // Затем вычисляем обратные разности    
     }
 
     /**
@@ -1260,7 +1278,8 @@ public class Everhart extends RungeKuttaMethod {
         isFirstStep = true;
         stepCount = 0;
         resetState();
-        calculateCoefficientMatrices();
+        calculateStirlingNumbers(); // Сначала вычисляем матрицы Стирлинга
+        calculateDTaus();           // Затем вычисляем обратные разности
     }
 
     /**
