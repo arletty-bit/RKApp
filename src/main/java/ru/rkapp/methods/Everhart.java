@@ -781,154 +781,173 @@ public class Everhart extends RungeKuttaMethod {
     }
 
     /**
-     * Выполняет один шаг интегрирования методом Эверхарта.
+     * Выполняет один шаг интегрирования методом Эверхарта для систем ОДУ.
      *
      * <p>
-     * <b>Алгоритм:</b>
+     * <ul>
+     * <li>Использует неявный метод Гаусса-Радо (нечетные порядки) или
+     * Гаусса-Лобатто (четные порядки)</li>
+     * <li>Аппроксимирует решение полиномом: \[ \mathbf{y}(t_0 + \tau h) =
+     * \mathbf{y}_0 + h\tau \left[ \mathbf{f}_0 + \sum_{j=0}^{n-1} \mathbf{B}_j
+     * \tau^j \right] \] где \(\tau \in [0,1]\), \(n = \text{order}/2\)</li>
+     * <li>Коэффициенты \(\mathbf{B}_j\) уточняются итерационно</li>
+     * </ul>
+     *
+     * <p>
+     * <b>Алгоритм (7 этапов):</b>
      * <ol>
-     * <li><b>Подготовка коэффициентов:</b>
-     * <p>
-     * Вычисление коэффициентов:
-     * <pre>
-     *     R = h / h<sub>prev</sub>  (отношение текущего шага к предыдущему)
-     *     Q = 1.0
-     * </pre>
-     * <p>
-     * Обновление коэффициентов B:
-     * <pre>
-     *     B<sub>s</sub> = Q * (Σ<sub>m=s</sub><sup>n-1</sup> E<sub>m+1,s+1</sub>·B<sub>m</sub><sup>prev</sup>) / (s+2)
-     * </pre> где s ∈ [0, n-1], n = order/2
+     * <li><b>Подготовка коэффициентов прогноза:</b>
+     * \[ R = \frac{h_{\text{current}}}{h_{\text{prev}}}, \quad Q_s = R^s \] \[
+     * \mathbf{B}_s^{\text{new}} = \mathbf{B}_s^{\text{prev}} + Q_s \cdot
+     * \frac{\sum_{m=s}^{n-1} E_{m+1,s+1} \mathbf{B}_m}{s+2} \]
+     * <ul>
+     * <li>\(E\) - матрица экстраполяции между шагами</li>
+     * <li>Корректирует \(\mathbf{B}\) при изменении размера шага</li>
+     * </ul>
      * </li>
      *
      * <li><b>Преобразование B → A:</b>
-     * <pre>
-     *     A<sub>s</sub> = Σ<sub>m=s</sub><sup>n-1</sup> D<sub>m+1,s+1</sub>·B<sub>m</sub>
-     * </pre>
+     * \[ \mathbf{A}_s = \sum_{m=s}^{n-1} D_{m+1,s+1} \mathbf{B}_m \]
+     * <ul>
+     * <li>\(D\) - матрица преобразования для полиномиальных коэффициентов</li>
+     * <li>\(\mathbf{A}\) используются при расчете производных</li>
+     * </ul>
      * </li>
      *
-     * <li><b>Итерационное уточнение:</b>
-     * <p>
-     * Для каждого узла t<sub>i</sub> (i ∈ [0, n-1]):
+     * <li><b>Расчет начальных производных:</b>
+     * <ul>
+     * <li>Для Radau (нечетные порядки): всегда вычисляет \(\mathbf{f}_0 =
+     * \mathbf{f}(t_0, \mathbf{y}_0)\)</li>
+     * <li>Для Lobatto (четные порядки): использует \(\mathbf{f}_{\text{end}}\)
+     * с предыдущего шага</li>
+     * </ul>
+     * </li>
+     *
+     * <li><b>Итерационное уточнение (коррекция):</b><br>
+     * Для каждого узла \(\tau_i\):
      * <ol type="a">
-     * <li>Вычисление промежуточного решения:
-     * <pre>
-     *         Y<sub>temp</sub> = Y₀ + h·τ<sub>i</sub>·[F₀ + Q(τ<sub>i</sub>)]
-     * </pre>
+     * <li>Вычисление промежуточного решения: \[ \mathbf{y}_{\text{temp}} =
+     * \mathbf{y}_0 + h\tau_i \left[ \mathbf{f}_0 + \sum_{j=0}^{n-1}
+     * \mathbf{B}_j \tau_i^j \right] \]
      * </li>
-     * <li>Расчет правых частей:
-     * <pre>
-     *         F<sub>i</sub> = f(t₀ + h·τ<sub>i</sub>, Y<sub>temp</sub>)
-     * </pre>
+     * <li>Расчет новых производных: \[ \mathbf{f}_i = \mathbf{f}(t_0 + \tau_i
+     * h, \mathbf{y}_{\text{temp}}) \]
      * </li>
-     * <li>Обновление коэффициентов:
-     * <pre>
-     *         ΔF = (F<sub>i</sub> - F₀) / τ<sub>i</sub>
-     *         A<sub>j</sub><sup>new</sup> = A<sub>j</sub><sup>old</sup> + dtaus[i][j]·(ΔF - A<sub>j</sub><sup>old</sup>)  для j < i
-     *         B<sub>j</sub> = B<sub>j</sub> + C<sub>i+1,j+1</sub>·(A<sub>i</sub><sup>new</sup> - A<sub>i</sub><sup>old</sup>) для j ≤ i
-     * </pre>
-     * </li>
-     * </ol>
+     * <li>Коррекция коэффициентов: \[ \Delta\mathbf{f}_i = \frac{\mathbf{f}_i -
+     * \mathbf{f}_0}{\tau_i} \] \[ \mathbf{A}_j^{\text{new}} =
+     * \mathbf{A}_j^{\text{old}} + \frac{1}{\tau_i - \tau_j} (\Delta\mathbf{f}_i
+     * - \mathbf{A}_j^{\text{old}}) \quad (j < i) \] \[
+     * \mathbf{B}_j^{\text{new}} = \mathbf{B}_j^{\text{old}} + C_{i+1,j+1}
+     * (\mathbf{A}_i^{\text{new}} - \mathbf{A}_i^{\text{old}}) \quad (j \leq i)
+     * \] </li> </ol>
      * </li>
      *
-     * <li><b>Контроль сходимости:</b>
-     * <pre>
-     *     max|Y<sub>temp</sub><sup>(k+1)</sup> - Y<sub>temp</sub><sup>(k)</sup>| ≤ ε<sub>local</sub>·(1 + |Y<sub>temp</sub>|)
-     * </pre> где k - номер итерации
+     * <li><b>Проверка сходимости:
+     * </b>
+     * \[ \max_k \left| \mathbf{y}_{\text{temp}}^{(iter)}[k] -
+     * \mathbf{y}_{\text{temp}}^{(iter-1)}[k] \right| <
+     * \varepsilon_{\text{local}} \cdot \left( 1 + \left|
+     * \mathbf{y}_{\text{temp}}[k] \right| \right) \] <ul>
+     * <li>\(\varepsilon_{\text{local}}\) - допустимая локальная
+     * погрешность</li>
+     * <li>Процесс останавливается при достижении сходимости или превышении
+     * maxIterations</li>
+     * </ul>
      * </li>
      *
      * <li><b>Финальное решение:</b>
-     * <p>
-     * Для Radau-методов (нечетный порядок):
-     * <pre>
-     *     Y<sub>new</sub> = Y₀ + h·[F₀ + Q(1)]
-     * </pre>
-     * <p>
-     * Для Lobatto-методов (четный порядок):
-     * <pre>
-     *     Y<sub>new</sub> = Y<sub>temp</sub>(τ=1)
-     * </pre>
+     * <ul>
+     * <li>Radau: экстраполяция на конец интервала (\(\tau = 1\)) \[
+     * \mathbf{y}_{\text{new}} = \mathbf{y}_0 + h \left[ \mathbf{f}_0 +
+     * \sum_{j=0}^{n-1} \mathbf{B}_j \right] \]
+     * </li>
+     * <li>Lobatto: используется значение из последнего узла (\(\tau_n =
+     * 1\))</li>
+     * </ul>
+     * </li>
+     *
+     * <li><b>Обновление состояния:</b>
+     * <ul>
+     * <li>Сохранение \(\mathbf{y}_0\) и шага \(h\) для следующего шага</li>
+     * <li>Инкремент счетчика шагов</li>
+     * </ul>
      * </li>
      * </ol>
      *
      * <p>
-     * <b>Математические обозначения:</b>
+     * <b>Ключевые особенности:</b>
      * <ul>
-     * <li>Y₀, F₀ - начальное состояние и производная при t=t₀</li>
-     * <li>τ<sub>i</sub> = SPACINGS[spacingIndex + i] - узлы интегрирования на
-     * [0,1]</li>
-     * <li>Q(τ) = Σ<sub>j=0</sub><sup>n-1</sup> B<sub>j</sub>τʲ - полиномиальная
-     * коррекция</li>
-     * <li>n = order/2 - количество узлов</li>
+     * <li>Автоматическая адаптация к изменению шага (через коэффициент
+     * \(R\))</li>
+     * <li>Использование истории расчетов (bPrevCoeffs) для ускорения
+     * сходимости</li>
+     * <li>Поддержка обратного интегрирования (\(h < 0\))</li>
+     * <li>Сложность: \(O(n^2 \cdot m \cdot k)\), где:
+     * <ul>
+     * <li>\(n\) - количество узлов (order/2)</li>
+     * <li>\(m\) - количество уравнений</li>
+     * <li>\(k\) - число итераций</li>
      * </ul>
-     *
-     * <p>
-     * <b>Особенности реализации:</b>
-     * <ul>
-     * <li>Поддерживает отрицательные шаги (обратное интегрирование)</li>
-     * <li>Автоматически определяет тип метода (Radau/Lobatto) по порядку:
-     * <pre>
-     *     isRadau = (order % 2 == 1)
-     * </pre>
      * </li>
-     * <li>Хранит историю коэффициентов B для эффективного предсказания</li>
-     * <li>Ограничивает максимальное количество итераций (maxIterations)</li>
      * </ul>
      *
-     * <p>
-     * <b>Критерии остановки:</b>
-     * <ul>
-     * <li>Успех: достижение сходимости за ≤ maxIterations итераций</li>
-     * <li>Ошибка: - Ошибка вычисления правых частей - Превышение maxIterations
-     * (только при verifyConvergence=true) - Деление на ноль при вычислении
-     * τ</li>
-     * </ul>
-     *
-     * @param t Начальное время шага (t₀)
-     * @param y Начальные условия [y₁, y₂, ..., yₙ] (Y₀)
+     * @param t Начальное время шага (\(t_0\))
+     * @param y Вектор начальных условий (\(\mathbf{y}_0\))
      * @param h Шаг интегрирования (может быть отрицательным)
-     * @param yNew Выходной массив для решения в t₀ + h
-     * @param parm Дополнительные параметры для правых частей
+     * @param yNew Выходной вектор для решения в момент \(t_0 + h\)
+     * @param parm Дополнительные параметры для вычисления правых частей
      *
-     * @return true - шаг успешно завершен, false - ошибка интегрирования или
-     * расходимость
+     * @return true - успешное выполнение шага, false - ошибка (некорректные
+     * данные, расходимость, ошибка вычисления правых частей)
      *
-     * @implNote Сложность алгоритма: O(n²·m·k), где: n - количество узлов, m -
-     * количество уравнений, k - количество итераций
+     * @implNote Требует предварительной инициализации матриц C, D, E и dtaus
      */
     @Override
     public boolean step(double t, double[] y, double h, double[] yNew, Object parm) {
+
+        // Проверка соответствия размерности системы
         if (y.length != numberOfEquations) {
             return false;
         }
 
+        // Инициализация выходного массива
         if (yNew == null) {
             yNew = new double[numberOfEquations];
         } else if (yNew.length != numberOfEquations) {
             yNew = new double[numberOfEquations];
         }
 
+        // Обработка нулевого шага
         if (h == 0.0) {
             System.arraycopy(y, 0, yNew, 0, numberOfEquations);
             return true;
         }
 
+        // Получение индекса узлов для текущего порядка
         int spacingIndex = calculateSpacingIndex();
         int numberOfPoints = order / 2;
+        // Для нечётного порядка - разбиение Радо, для чётного разбиение Лобатто
         boolean isRadau = ((order - 2 * numberOfPoints) == 1);
 
+        // Вычисление отношения нового шага к предыдущему
         double R = (isFirstStep || previousStepSize == 0) ? 1.0 : h / previousStepSize;
         isFirstStep = false;
 
+        // Сохранение коэффициентов B для первых двух шагов
         if (stepCount < 2) {
             for (int i = 0; i < numberOfPoints; i++) {
                 System.arraycopy(bCoeffs[i], 0, bPrevCoeffs[i], 0, numberOfEquations);
             }
         }
-
+        
+        // ================================================
+        // 1. ПОДГОТОВКА КОЭФФИЦИЕНТОВ
+        // ================================================
         double Q = 1.0;
         for (int s = 0; s < numberOfPoints; s++) {
             Arrays.fill(pVector, 0.0);
 
+            // Суммирование E * B для прогноза
             for (int m = s; m < numberOfPoints; m++) {
                 double ems = eMatrix[m + 1][s + 1];
                 for (int eq = 0; eq < numberOfEquations; eq++) {
@@ -936,8 +955,10 @@ public class Everhart extends RungeKuttaMethod {
                 }
             }
 
+            // Коррекция с учетом изменения шага
             Q *= R;
 
+            // Обновление коэффициентов B
             for (int eq = 0; eq < numberOfEquations; eq++) {
                 double oldBL = bPrevCoeffs[s][eq];
                 bCoeffs[s][eq] -= oldBL;
@@ -947,9 +968,13 @@ public class Everhart extends RungeKuttaMethod {
             }
         }
 
+        // ================================================
+        // 2. ПРЕОБРАЗОВАНИЕ B -> A
+        // ================================================
         for (int s = 0; s < numberOfPoints; s++) {
             Arrays.fill(pVector, 0.0);
 
+            // Вычисление A = D * B
             for (int m = s; m < numberOfPoints; m++) {
                 double dms = dMatrix[m + 1][s + 1];
                 for (int eq = 0; eq < numberOfEquations; eq++) {
@@ -959,37 +984,54 @@ public class Everhart extends RungeKuttaMethod {
             System.arraycopy(pVector, 0, aCoeffs[s], 0, numberOfEquations);
         }
 
+        // ================================================
+        // 3. ВЫЧИСЛЕНИЕ НАЧАЛЬНЫХ ПРАВЫХ ЧАСТЕЙ
+        // ================================================
         if (isRadau || stepCount == 0) {
+                
+            // Для Radau всегда пересчитываем F0
             System.arraycopy(y, 0, yTemp, 0, numberOfEquations);
             if (!rightCalculator.compute(t, yTemp, f0, parm)) {
                 return false;
             }
         } else {
+            
+            // Для Lobatto используем последнее F с предыдущего шага
             System.arraycopy(lastF, 0, f0, 0, numberOfEquations);
         }
 
+        // ================================================
+        // 4. ИТЕРАЦИОННОЕ УТОЧНЕНИЕ
+        // ================================================
         boolean converged = false;
         int iteration;
         for (iteration = 1; iteration <= maxIterations; iteration++) {
             for (int i = 0; i < numberOfPoints; i++) {
+                // Обработка каждого узла интегрирования
                 double tau = SPACINGS[spacingIndex + i];
+                
+                // 4a. Вычисление промежуточного решения
                 calculateSolution(tau, numberOfPoints, h, y, f0, yTemp);
-
+            
+                // 4b. Расчет правых частей в узле
                 if (!rightCalculator.compute(t + h * tau, yTemp, lastF, parm)) {
                     return false;
                 }
-
+            
+                // 4c.1 Вычисление дельты производных
                 for (int eq = 0; eq < numberOfEquations; eq++) {
                     pVector[eq] = (lastF[eq] - f0[eq]) / tau;
                 }
-
+                
+                // 4c.2 Обновление alpha-коэффициентов (прямая подстановка)
                 for (int j = 0; j < i; j++) {
                     double dtausij = dtaus[i][j];
                     for (int eq = 0; eq < numberOfEquations; eq++) {
                         pVector[eq] = dtausij * (pVector[eq] - aCoeffs[j][eq]);
                     }
                 }
-
+            
+                // 4c.3 Коррекция B-коэффициентов через C-матрицу
                 for (int j = 0; j <= i; j++) {
                     double cij = cMatrix[i + 1][j + 1];
                     for (int eq = 0; eq < numberOfEquations; eq++) {
@@ -1000,8 +1042,13 @@ public class Everhart extends RungeKuttaMethod {
                 System.arraycopy(pVector, 0, aCoeffs[i], 0, numberOfEquations);
             }
 
+            // ================================================
+            // 5. ПРОВЕРКА СХОДИМОСТИ
+            // ================================================
             boolean isConverged = true;
             for (int eq = 0; eq < numberOfEquations; eq++) {
+                
+                // Критерий сходимости: |Y_temp^k+1 - Y_temp^k| < ε * |Y_temp|
                 if (Math.abs(yTemp[eq] - yk[eq]) > Math.abs(localError * yTemp[eq])) {
                     isConverged = false;
                     break;
@@ -1009,24 +1056,33 @@ public class Everhart extends RungeKuttaMethod {
             }
 
             if (isConverged) {
-                LOG.debug("Converged in {} iterations", iteration);
                 converged = true;
                 break;
             } else if (iteration < maxIterations) {
+                // Сохраняем текущее приближение для следующей итерации
                 System.arraycopy(yTemp, 0, yk, 0, numberOfEquations);
             }
         }
 
+        // Обработка расходимости
         if (verifyConvergence && !converged) {
             return false;
         }
 
+        // ================================================
+        // 6. ФИНАЛЬНОЕ РЕШЕНИЕ
+        // ================================================
         if (isRadau) {
+            // Для Radau: экстраполяция в конец интервала
             calculateSolution(1.0, numberOfPoints, h, y, f0, yNew);
         } else {
+            // Для Lobatto: последний узел уже содержит решение
             System.arraycopy(yTemp, 0, yNew, 0, numberOfEquations);
         }
-
+        
+        // ================================================
+        // 7. ОБНОВЛЕНИЕ СОСТОЯНИЯ ИНТЕГРАТОРА
+        // ================================================
         stepBeginTime = t;
         previousStepSize = h;
         System.arraycopy(y, 0, y0, 0, numberOfEquations);
@@ -1055,7 +1111,7 @@ public class Everhart extends RungeKuttaMethod {
     }
 
     /**
-     * Выполняет итерационный процесс уточнения решения для одного шага.
+     * (Вписан внутрь step) Выполняет итерационный процесс уточнения решения для одного шага.
      *
      * <p>
      * Для каждого узла интегрирования:
@@ -1232,7 +1288,7 @@ public class Everhart extends RungeKuttaMethod {
     }
 
     /**
-     * Проверяет сходимость итерационного процесса по критерию: |Yₖ⁺¹ - Yₖ| ≤
+     * (Вписан внутрь step) Проверяет сходимость итерационного процесса по критерию: |Yₖ⁺¹ - Yₖ| ≤
      * localError * (|Yₖ⁺¹|)
      *
      * @return true если достигнута заданная точность для всех уравнений

@@ -14,15 +14,6 @@ import ru.rkapp.RightCalculator;
  * k4 = f(t + h, y + h * k3)
  * y_{n+1} = y_n + h/6 * (k1 + 2k2 + 2k3 + k4)
  * </pre>
- * 
- * <p>Таблица Бутчера метода:
- * <table border="1">
- *   <tr><th>0</th><td></td><td></td><td></td></tr>
- *   <tr><th>1/2</th><td>1/2</td><td></td><td></td></tr>
- *   <tr><th>1/2</th><td>0</td><td>1/2</td><td></td></tr>
- *   <tr><th>1</th><td>0</td><td>0</td><td>1</td></tr>
- *   <tr><th></th><td>1/6</td><td>1/3</td><td>1/3</td><td>1/6</td></tr>
- * </table>
  */
 public class CRK4a extends ButcherTableMethod {
     private static final double[] C = {
